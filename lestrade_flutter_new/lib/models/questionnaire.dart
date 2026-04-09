@@ -106,7 +106,7 @@ class Question {
     final oblig = json['obligatoire'];
     return Question(
       id: Questionnaire._parseInt(json['id']),
-      sectionId: Questionnaire._parseInt(json['section_id']),
+      sectionId: Questionnaire._parseInt(json['section_id'] ?? json['sid']),
       type: json['type']?.toString() ?? 'text',
       texte: json['texte']?.toString() ?? '',
       options: json['options']?.toString(),
@@ -167,7 +167,8 @@ class QuestionnaireFull {
 
   factory QuestionnaireFull.fromJson(Map<String, dynamic> json) {
     // L'API renvoie questionnaire comme un data.frame (liste d'une ligne)
-    final qRaw = json['questionnaire'];
+    // Le panier utilise 'quest' comme clé, l'API WiFi utilise 'questionnaire'
+    final qRaw = json['questionnaire'] ?? json['quest'];
     Questionnaire q;
     if (qRaw is List && qRaw.isNotEmpty) {
       q = Questionnaire.fromJson(Map<String, dynamic>.from(qRaw[0]));

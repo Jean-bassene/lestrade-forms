@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 import 'db_service.dart';
+import '../models/reponse.dart';
 
 class SyncResult {
   final int sent;
@@ -48,8 +49,8 @@ class SyncService {
     final pending = await DbService.getPendingReponses();
     if (pending.isEmpty) return const SyncResult();
 
-    // Grouper par questionnaire
-    final byQuest = <int, List<dynamic>>{};
+    // Grouper par questionnaire (typage explicite Reponse)
+    final byQuest = <int, List<Reponse>>{};
     for (final r in pending) {
       byQuest.putIfAbsent(r.questionnaireId, () => []).add(r);
     }
@@ -75,7 +76,7 @@ class SyncService {
 
   // ── Sync via WiFi (plumber local) ────────────────────────────────────────
 
-  static Future<SyncResult> _syncViaWifi(Map<int, List<dynamic>> byQuest) async {
+  static Future<SyncResult> _syncViaWifi(Map<int, List<Reponse>> byQuest) async {
     int sent = 0, failed = 0;
     for (final entry in byQuest.entries) {
       final questId = entry.key;
@@ -87,7 +88,7 @@ class SyncService {
           'donnees_json': r.donneesJson,
         }).toList();
         await ApiService.postReponsesWithHorodateur(questId, payload);
-        await DbService.markSynced(reps.map<String>((r) => r.uuid as String).toList());
+        await DbService.markSynced(reps.map((r) => r.uuid).toList());
         sent += reps.length;
       } catch (_) {
         failed += reps.length;
@@ -99,8 +100,9 @@ class SyncService {
   // ── Sync via Panier Apps Script ──────────────────────────────────────────
 
   static Future<SyncResult> _syncViaPanier(
-      Map<int, List<dynamic>> byQuest, String panierUrl) async {
+      Map<int, List<Reponse>> byQuest, String panierUrl) async {
     int sent = 0, failed = 0;
+    String? lastError;
     for (final entry in byQuest.entries) {
       final questId = entry.key;
       final reps    = entry.value;
@@ -112,33 +114,58 @@ class SyncService {
         }).toList();
 
         final body = jsonEncode({
-          'quest_id':     questId,
+          'quest_id':      questId,
           'reponses_full': payload,
         });
 
-        final resp = await http
-            .post(
-              Uri.parse(panierUrl),
-              headers: {'Content-Type': 'application/json'},
-              body: body,
-            )
-            .timeout(const Duration(seconds: 20));
+        // Apps Script : POST traité côté Google, réponse renvoyée via redirect GET
+        final client = http.Client();
+        String bodyStr;
+        try {
+          // Étape 1 : POST sans suivre le redirect
+          final req = http.Request('POST', Uri.parse(panierUrl))
+            ..headers['Content-Type'] = 'application/json'
+            ..body = body
+            ..followRedirects = false;
+          final streamed = await client.send(req)
+              .timeout(const Duration(seconds: 15));
 
-        if (resp.statusCode == 200) {
-          final result = jsonDecode(resp.body);
+          if (streamed.statusCode == 302 || streamed.statusCode == 301) {
+            // Étape 2 : GET sur l'URL de redirect pour récupérer la réponse JSON
+            final redirectUrl = streamed.headers['location'] ?? panierUrl;
+            final resp2 = await client
+                .get(Uri.parse(redirectUrl))
+                .timeout(const Duration(seconds: 20));
+            bodyStr = resp2.body;
+          } else {
+            // Réponse directe (rare)
+            bodyStr = await streamed.stream.bytesToString();
+          }
+        } finally {
+          client.close();
+        }
+
+        if (bodyStr != null && bodyStr.trimLeft().startsWith('{')) {
+          final result = jsonDecode(bodyStr) as Map<String, dynamic>;
           if (result['status'] == 'ok') {
-            await DbService.markSynced(
-                reps.map<String>((r) => r.uuid as String).toList());
+            final uuids = reps.map((r) => r.uuid).toList();
+            await DbService.markSynced(uuids);
             sent += reps.length;
           } else {
+            lastError = result['message']?.toString() ?? 'Erreur Apps Script';
             failed += reps.length;
           }
         } else {
+          lastError = 'Réponse invalide du panier';
           failed += reps.length;
         }
-      } catch (_) {
+      } catch (e) {
+        lastError = e.toString();
         failed += reps.length;
       }
+    }
+    if (failed > 0 && sent == 0) {
+      return SyncResult(failed: failed, error: lastError ?? 'Échec panier', mode: 'panier');
     }
     return SyncResult(sent: sent, failed: failed, mode: 'panier');
   }

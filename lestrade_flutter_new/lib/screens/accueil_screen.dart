@@ -16,6 +16,7 @@ class AccueilScreen extends StatefulWidget {
 
 class _AccueilScreenState extends State<AccueilScreen> {
   bool _serverOnline = false;
+  bool _panierConfigured = false;
   bool _checking = true;
   int _pendingCount = 0;
   int _questCount = 0;
@@ -31,12 +32,14 @@ class _AccueilScreenState extends State<AccueilScreen> {
     setState(() => _checking = true);
     final url = await ApiService.getBaseUrl();
     final online = await ApiService.checkHealth();
+    final panierUrl = await SyncService.getPanierUrl();
     final pending = await DbService.countPending();
     final quests = await DbService.getQuestionnaires();
     if (mounted) {
       setState(() {
         _baseUrl = url;
         _serverOnline = online;
+        _panierConfigured = panierUrl != null && panierUrl.isNotEmpty;
         _pendingCount = pending;
         _questCount = quests.length;
         _checking = false;
@@ -97,6 +100,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
             _StatusCard(
               checking: _checking,
               online: _serverOnline,
+              panierConfigured: _panierConfigured,
               url: _baseUrl,
             ),
             const SizedBox(height: 12),
@@ -146,7 +150,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
               color: _pendingCount > 0
                   ? const Color(0xFFF59E0B)
                   : Colors.grey,
-              enabled: _serverOnline && _pendingCount > 0,
+              enabled: (_serverOnline || _panierConfigured) && _pendingCount > 0,
               onTap: _sync,
             ),
             const SizedBox(height: 8),
@@ -154,7 +158,9 @@ class _AccueilScreenState extends State<AccueilScreen> {
             _ActionButton(
               icon: Icons.cloud_download,
               label: 'Télécharger les enquêtes',
-              subtitle: 'Récupère la liste depuis le serveur',
+              subtitle: _serverOnline
+                  ? 'Récupère la liste depuis le serveur WiFi'
+                  : 'Utilisez le Scanner QR (pas de WiFi)',
               color: const Color(0xFF003366),
               enabled: _serverOnline,
               onTap: _downloadQuests,
@@ -184,50 +190,64 @@ class _AccueilScreenState extends State<AccueilScreen> {
 class _StatusCard extends StatelessWidget {
   final bool checking;
   final bool online;
+  final bool panierConfigured;
   final String url;
 
   const _StatusCard({
     required this.checking,
     required this.online,
+    required this.panierConfigured,
     required this.url,
   });
 
   @override
   Widget build(BuildContext context) {
+    final String label;
+    final IconData icon;
+    final Color color;
+
+    if (checking) {
+      label = 'Vérification...';
+      icon = Icons.sync;
+      color = Colors.orange;
+    } else if (online) {
+      label = 'WiFi connecté';
+      icon = Icons.cloud_done;
+      color = Colors.green;
+    } else if (panierConfigured) {
+      label = 'Mode panier — fonctionne sur tout réseau';
+      icon = Icons.cloud_queue;
+      color = Colors.blue;
+    } else {
+      label = 'Non connecté — scannez un QR pour configurer';
+      icon = Icons.cloud_off;
+      color = Colors.orange;
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(
-              checking
-                  ? Icons.sync
-                  : (online ? Icons.cloud_done : Icons.cloud_off),
-              color: checking
-                  ? Colors.orange
-                  : (online ? Colors.green : Colors.red),
-              size: 32,
-            ),
+            Icon(icon, color: color, size: 32),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    checking
-                        ? 'Vérification...'
-                        : (online ? 'Serveur connecté' : 'Serveur hors ligne'),
+                    label,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  if (url.isNotEmpty)
+                  if (online && url.isNotEmpty)
                     Text(
                       url,
                       style: Theme.of(context).textTheme.bodySmall,
                       overflow: TextOverflow.ellipsis,
                     )
-                  else
+                  else if (!online && !panierConfigured)
                     Text(
-                      'Non configuré — allez dans Paramètres',
+                      'Scannez un QR de questionnaire pour démarrer',
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall

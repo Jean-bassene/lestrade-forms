@@ -915,8 +915,12 @@ server <- function(input, output, session) {
     # Sauvegarder l'URL du Sheet pour le bouton "Ouvrir"
     rv$panier_sheet_url <- result$sheet_url
 
-    gs_file <- normalizePath(
-      file.path(dirname(DB_PATH), "lestrade_panier.gs"), mustWork = FALSE)
+    gs_code <- tryCatch(
+      paste(readLines(
+        file.path(dirname(DB_PATH), "lestrade_panier.gs"), warn = FALSE
+      ), collapse = "\n"),
+      error = function(e) "# Erreur : fichier lestrade_panier.gs introuvable"
+    )
 
     showModal(modalDialog(
       title = "✅ Sheet créé — 1 étape manuelle",
@@ -937,10 +941,35 @@ server <- function(input, output, session) {
           ),
           tags$li("Extensions → ", tags$strong("Apps Script")),
           tags$li(
-            "Effacez le code existant, copiez-collez le contenu de :",
-            br(), tags$code(gs_file)
+            "Effacez le code existant, puis cliquez ", tags$strong("Copier le code"), " :",
+            br(),
+            div(style = "position:relative; margin-top:8px;",
+              tags$textarea(
+                id    = "gs_code_textarea",
+                readonly = NA,
+                style = paste0(
+                  "width:100%; height:180px; font-family:monospace; font-size:11px;",
+                  "background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px;",
+                  "padding:8px; resize:vertical; color:#333;"
+                ),
+                gs_code
+              ),
+              br(),
+              tags$button(
+                "📋 Copier le code",
+                onclick = paste0(
+                  "var t=document.getElementById('gs_code_textarea');",
+                  "t.select(); t.setSelectionRange(0,99999);",
+                  "document.execCommand('copy');",
+                  "this.textContent='✅ Copié !';",
+                  "var btn=this; setTimeout(function(){btn.textContent='📋 Copier le code';},2000);"
+                ),
+                class = "btn btn-sm btn-success",
+                style = "margin-top:6px;"
+              )
+            )
           ),
-          tags$li("Sauvegardez (Ctrl+S)"),
+          tags$li("Sauvegardez (", tags$kbd("Ctrl+S"), ")"),
           tags$li(
             "Cliquez ", tags$strong("Déployer → Nouveau déploiement"), br(),
             "· Type : ", tags$strong("Application Web"), br(),
