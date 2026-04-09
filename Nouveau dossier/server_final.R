@@ -53,8 +53,7 @@ server <- function(input, output, session) {
       cache  = DESKTOP_DRIVE_CACHE,
       scopes = c(
         "https://www.googleapis.com/auth/drive",
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/script.projects"
+        "https://www.googleapis.com/auth/spreadsheets"
       )
     )
     TRUE
@@ -879,59 +878,72 @@ server <- function(input, output, session) {
       return()
     }
     showModal(modalDialog(
-      title = "✨ Création du panier automatique",
+      title = "✨ Configurer le panier",
       size  = "s",
       div(
         p("Cette opération va :"),
         tags$ol(
-          tags$li("Créer un Google Sheet ", tags$strong("Lestrade_Panier"), " dans votre Drive"),
-          tags$li("Créer et déployer le Apps Script lié"),
-          tags$li("Enregistrer l'URL automatiquement")
+          tags$li("Créer automatiquement le Google Sheet ", tags$strong("Lestrade_Panier")),
+          tags$li("Vous guider pour déployer le Apps Script (2 min, une seule fois)")
         ),
-        p(class = "hint-text", "La première fois, Google peut demander d'autoriser l'accès à Apps Script.")
+        p(class = "hint-text",
+          "Le déploiement Apps Script nécessite une action manuelle — ",
+          "Google bloque son automatisation pour les apps non vérifiées.")
       ),
       footer = tagList(
         modalButton("Annuler"),
-        actionButton("btn_panier_create_confirm", "✨ Créer maintenant", class = "btn-success")
+        actionButton("btn_panier_create_confirm", "✨ Créer le Sheet", class = "btn-success")
       )
     ))
   })
 
   observeEvent(input$btn_panier_create_confirm, {
     removeModal()
-    withProgress(message = "Création du panier en cours...", value = 0, {
-      setProgress(0.2, detail = "Création du Google Sheet...")
+    withProgress(message = "Création du Google Sheet...", value = 0.5, {
       result <- tryCatch(
         create_panier_automatique(),
         error = function(e) list(ok = FALSE, error = e$message)
       )
     })
-    if (isTRUE(result$ok)) {
-      showNotification(
-        paste0("✓ Panier créé ! URL enregistrée automatiquement."),
-        type = "message", duration = 8
-      )
-      output$panier_import_result_ui <- renderUI(
-        div(class = "alert alert-success", style = "margin-top:8px;font-size:12px;",
-            "✓ Sheet + Apps Script créés. Le prochain QR embarquera l'URL du panier.",
-            br(), tags$code(style="font-size:10px;", get_panier_url() %||% ""))
-      )
-    } else {
-      # Si erreur de scope Apps Script → guider vers autorisation manuelle
-      err <- result$error %||% "Erreur inconnue"
-      if (grepl("403|script|scope|permission", err, ignore.case = TRUE)) {
-        showModal(modalDialog(
-          title = "Autorisation requise",
-          p("Google requiert une autorisation supplémentaire pour Apps Script."),
-          p("Cliquez le lien ci-dessous, autorisez, puis relancez la création :"),
-          tags$a(href = "https://script.google.com", target = "_blank",
-                 class = "btn btn-primary", "Ouvrir Apps Script →"),
-          footer = modalButton("Fermer")
-        ))
-      } else {
-        showNotification(paste("Erreur :", err), type = "error", duration = 10)
-      }
+
+    if (!isTRUE(result$ok)) {
+      showNotification(paste("Erreur :", result$error), type = "error", duration = 10)
+      return()
     }
+
+    # Sheet créé — guider pour le déploiement Apps Script (étape manuelle unique)
+    gs_file <- normalizePath(
+      file.path(dirname(DB_PATH), "lestrade_panier.gs"), mustWork = FALSE)
+
+    showModal(modalDialog(
+      title = "✅ Sheet créé — 1 étape manuelle",
+      size  = "l", easyClose = FALSE,
+      div(
+        div(class = "alert alert-success",
+            "✓ Google Sheet ", tags$strong("Lestrade_Panier"), " créé dans votre Drive."),
+        p(tags$strong("Maintenant déployez le Apps Script (une seule fois) :")),
+        tags$ol(
+          tags$li(
+            "Ouvrez le Sheet : ",
+            tags$a(href = result$sheet_url, target = "_blank",
+                   class = "btn btn-sm btn-primary", "Ouvrir Lestrade_Panier →")
+          ),
+          tags$li("Extensions → ", tags$strong("Apps Script")),
+          tags$li("Effacez le code existant, copiez-collez le contenu de :"),
+          tags$li(tags$code(gs_file)),
+          tags$li("Sauvegardez (Ctrl+S)"),
+          tags$li(
+            "Cliquez ", tags$strong("Déployer → Nouveau déploiement"), br(),
+            "Type : Application Web", br(),
+            "Exécuter en tant que : ", tags$strong("Moi"), br(),
+            "Qui a accès : ", tags$strong("Tout le monde"), br(),
+            "→ ", tags$strong("Déployer"), " → Autorisez → copiez l'URL"
+          ),
+          tags$li("Revenez ici → ", tags$strong("⚙ URL manuelle"), " → collez l'URL → Enregistrer")
+        )
+      ),
+      footer = modalButton("J'ai compris")
+    ))
   })
 
   # Configuration du panier
