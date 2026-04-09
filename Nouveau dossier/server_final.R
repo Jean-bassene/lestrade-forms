@@ -7,6 +7,8 @@ library(shiny); library(shinyjs); library(DT)
 library(jsonlite); library(dplyr); library(RSQLite); library(DBI)
 library(readxl); library(readr); library(stringi)
 
+source(file.path(dirname(DB_PATH), "global_licence.R"), local = TRUE)
+
 server <- function(input, output, session) {
 
   # ── IP locale (calculée une seule fois au démarrage) ──────────────────────
@@ -29,14 +31,223 @@ server <- function(input, output, session) {
     refresh_reponses = 0L,
     selected_quest   = NULL,
     selected_rep_id  = NULL,
-    ext_df           = NULL,   # fichier externe en session
-    ext_filename     = NULL,   # nom affiché
-    qr_tmp_path      = NULL,   # chemin PNG QR temporaire
-    qr_uid           = NULL,   # UID du questionnaire affiché
-    qr_quest_id      = NULL,   # ID questionnaire pour le modal QR
-    drive_connected  = FALSE,  # statut connexion Drive Desktop
-    panier_sheet_url = NULL    # URL du Sheet panier créé
+    ext_df           = NULL,
+    ext_filename     = NULL,
+    qr_tmp_path      = NULL,
+    qr_uid           = NULL,
+    qr_quest_id      = NULL,
+    drive_connected  = FALSE,
+    panier_sheet_url = NULL,
+    # Licence
+    licence_statut   = "inconnu",  # "premium"|"trial"|"expire"|"inconnu"
+    licence_email    = "",
+    licence_jours    = 0L,
+    licence_message  = ""
   )
+
+  # ── Vérification licence au démarrage ────────────────────────────────────
+  observe({
+    panier_url <- get_panier_url()
+    lic <- verifier_licence(panier_url)
+    rv$licence_statut  <- lic$statut
+    rv$licence_email   <- lic$email %||% ""
+    rv$licence_jours   <- as.integer(lic$jours_restants %||% 0)
+    rv$licence_message <- lic$message %||% ""
+
+    # Si pas encore enregistré → modal saisie email
+    if (lic$statut == "inconnu") {
+      showModal(modalDialog(
+        title = "Bienvenue dans Lestrade Forms",
+        size  = "s", easyClose = FALSE,
+        div(
+          div(class = "alert alert-info", style = "font-size:13px;",
+              "Saisissez votre adresse email pour démarrer votre trial gratuit de ",
+              tags$strong(paste0(TRIAL_DAYS, " jours")), "."),
+          textInput("licence_email_input", "Adresse email",
+                    placeholder = "vous@exemple.com", width = "100%"),
+          uiOutput("licence_register_result")
+        ),
+        footer = tagList(
+          actionButton("btn_licence_register", "Démarrer le trial",
+                       class = "btn-primary", style = "width:100%;")
+        )
+      ))
+    }
+
+    # Si expiré → modal activation clé
+    if (lic$statut == "expire") {
+      showModal(modalDialog(
+        title = "Trial expiré",
+        size  = "s", easyClose = FALSE,
+        div(
+          div(class = "alert alert-danger", style = "font-size:13px;",
+              "Votre trial de ", tags$strong(paste0(TRIAL_DAYS, " jours")),
+              " est terminé. Activez une licence premium pour continuer."),
+          p(class = "hint-text", "Contactez-nous pour obtenir votre clé de licence."),
+          textInput("licence_cle_input", "Clé de licence",
+                    placeholder = "LEST-XXXX-XXXX-XXXX-XXXX", width = "100%"),
+          uiOutput("licence_activate_result")
+        ),
+        footer = tagList(
+          actionButton("btn_licence_activate", "Activer la licence",
+                       class = "btn-warning", style = "width:100%;")
+        )
+      ))
+    }
+  })
+
+  # ── Enregistrement email ─────────────────────────────────────────────────
+  output$licence_register_result <- renderUI({ NULL })
+
+  observeEvent(input$btn_licence_register, {
+    email <- trimws(input$licence_email_input)
+    if (!grepl("^[^@]+@[^@]+\\.[^@]+$", email)) {
+      output$licence_register_result <- renderUI({
+        div(class = "alert alert-danger", style = "font-size:12px; margin-top:8px;",
+            "Email invalide. Vérifiez le format.")
+      })
+      return()
+    }
+    panier_url <- get_panier_url()
+    result     <- enregistrer_licence(email, panier_url)
+    if (isTRUE(result$ok)) {
+      rv$licence_statut  <- result$statut
+      rv$licence_email   <- email
+      rv$licence_jours   <- as.integer(result$jours_restants %||% TRIAL_DAYS)
+      rv$licence_message <- result$message
+      removeModal()
+      showNotification(paste0("✓ ", result$message), type = "message", duration = 6)
+    } else {
+      output$licence_register_result <- renderUI({
+        div(class = "alert alert-danger", style = "font-size:12px; margin-top:8px;",
+            result$message)
+      })
+    }
+  })
+
+  # ── Activation clé ───────────────────────────────────────────────────────
+  output$licence_activate_result <- renderUI({ NULL })
+
+  observeEvent(input$btn_licence_activate, {
+    cle        <- trimws(input$licence_cle_input)
+    panier_url <- get_panier_url()
+    result     <- activer_cle_licence(cle, panier_url)
+    if (isTRUE(result$ok)) {
+      rv$licence_statut  <- "premium"
+      rv$licence_jours   <- 9999L
+      rv$licence_message <- result$message
+      removeModal()
+      showNotification("✓ Licence premium activée !", type = "message", duration = 5)
+    } else {
+      output$licence_activate_result <- renderUI({
+        div(class = "alert alert-danger", style = "font-size:12px; margin-top:8px;",
+            result$message)
+      })
+    }
+  })
+
+  # ── Badge licence dans le header ─────────────────────────────────────────
+  output$header_licence_badge <- renderUI({
+    statut <- rv$licence_statut
+    jours  <- rv$licence_jours
+    label  <- switch(statut,
+      premium = "✓ Premium",
+      trial   = paste0("⏳ Trial — ", jours, "j"),
+      expire  = "⚠ Expiré",
+      "◌ Licence"
+    )
+    cls <- switch(statut, premium = "premium", trial = "trial", expire = "expire", "trial")
+    tags$button(
+      class   = paste("licence-badge", cls),
+      onclick = "Shiny.setInputValue('btn_licence_modal', Math.random())",
+      label
+    )
+  })
+
+  # ── Bannière trial / expiration ───────────────────────────────────────────
+  output$licence_banner <- renderUI({
+    statut <- rv$licence_statut
+    jours  <- rv$licence_jours
+    if (statut == "premium" || statut == "inconnu") return(NULL)
+
+    if (statut == "trial" && jours > 7) return(NULL)  # pas de bannière si > 7j restants
+
+    texte <- if (statut == "expire") {
+      "⚠ Trial expiré — activez une licence premium pour continuer à utiliser Lestrade Forms."
+    } else {
+      paste0("⏳ Il vous reste ", jours, " jour(s) de trial. Activez une licence pour continuer sans interruption.")
+    }
+
+    # Pousser le contenu vers le bas
+    session$sendCustomMessage("addBodyClass", "has-licence-banner")
+
+    div(class = paste("licence-banner", statut),
+      span(texte),
+      tags$button(
+        class   = "licence-banner-btn",
+        onclick = "Shiny.setInputValue('btn_licence_modal', Math.random())",
+        if (statut == "expire") "Activer maintenant" else "Activer la licence"
+      )
+    )
+  })
+
+  # ── Modal depuis badge/bannière ───────────────────────────────────────────
+  observeEvent(input$btn_licence_modal, {
+    statut <- rv$licence_statut
+    showModal(modalDialog(
+      title = "Licence Lestrade Forms",
+      size  = "s", easyClose = TRUE,
+      div(
+        if (statut == "premium") {
+          div(class = "alert alert-success",
+              tags$strong("✓ Licence premium active"),
+              br(), tags$small(rv$licence_email))
+        } else if (statut == "trial") {
+          div(
+            div(class = "alert alert-warning",
+                tags$strong(paste0("⏳ Trial — ", rv$licence_jours, " jour(s) restant(s)")),
+                br(), tags$small(rv$licence_email)),
+            hr(),
+            p(class = "hint-text", "Entrez votre clé pour passer en version premium :"),
+            textInput("licence_cle_input2", "Clé de licence",
+                      placeholder = "LEST-XXXX-XXXX-XXXX-XXXX", width = "100%"),
+            uiOutput("licence_activate_result2")
+          )
+        } else {
+          div(
+            div(class = "alert alert-danger", "⚠ Trial expiré"),
+            p(class = "hint-text", "Entrez votre clé pour activer la version premium :"),
+            textInput("licence_cle_input2", "Clé de licence",
+                      placeholder = "LEST-XXXX-XXXX-XXXX-XXXX", width = "100%"),
+            uiOutput("licence_activate_result2")
+          )
+        }
+      ),
+      footer = if (statut != "premium") tagList(
+        modalButton("Fermer"),
+        actionButton("btn_licence_activate2", "Activer", class = "btn-warning")
+      ) else modalButton("Fermer")
+    ))
+  })
+
+  output$licence_activate_result2 <- renderUI({ NULL })
+
+  observeEvent(input$btn_licence_activate2, {
+    cle        <- trimws(input$licence_cle_input2 %||% "")
+    panier_url <- get_panier_url()
+    result     <- activer_cle_licence(cle, panier_url)
+    if (isTRUE(result$ok)) {
+      rv$licence_statut  <- "premium"
+      rv$licence_jours   <- 9999L
+      removeModal()
+      showNotification("✓ Licence premium activée !", type = "message", duration = 5)
+    } else {
+      output$licence_activate_result2 <- renderUI({
+        div(class = "alert alert-danger", style = "font-size:12px; margin-top:8px;",
+            result$message)
+      })
+    }
+  })
 
   # ── Connexion Google Drive Desktop ─────────────────────────────────────────
   DESKTOP_DRIVE_CACHE <- file.path(tools::R_user_dir("LestradeApp", "data"), ".secrets_desktop")

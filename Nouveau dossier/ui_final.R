@@ -335,6 +335,19 @@ table.dataTable tbody tr.selected td{background:#EBF3FF!important;}
 .import-topbar-left{display:flex;align-items:center;gap:10px;}
 .import-topbar-title{font-weight:600;font-size:.9rem;color:var(--text-1);}
 .import-topbar-badge{background:var(--teal-lt);color:var(--teal);border:1px solid rgba(10,128,117,.22);border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;}
+/* Licence badge header */
+.licence-badge{display:flex;align-items:center;gap:7px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;border:none;white-space:nowrap;margin-left:4px;}
+.licence-badge.premium{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
+.licence-badge.trial{background:rgba(245,158,11,.15);color:#F59E0B;border:1px solid rgba(245,158,11,.3);}
+.licence-badge.expire{background:rgba(192,57,43,.15);color:#e74c3c;border:1px solid rgba(192,57,43,.3);}
+/* Bannière licence */
+.licence-banner{position:fixed;top:60px;left:0;right:0;z-index:998;display:flex;align-items:center;justify-content:space-between;padding:8px 28px;font-size:13px;font-weight:500;}
+.licence-banner.trial{background:linear-gradient(90deg,#7c4a00,#c07a00);color:#fff;}
+.licence-banner.expire{background:linear-gradient(90deg,var(--red),#922b21);color:#fff;}
+.licence-banner-btn{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:4px 14px;font-size:12px;font-weight:600;cursor:pointer;}
+.licence-banner-btn:hover{background:rgba(255,255,255,.35);}
+/* Quand bannière présente, pousser le contenu vers le bas */
+body.has-licence-banner{padding-top:96px!important;}
 @media(max-width:900px){.features-grid{grid-template-columns:repeat(2,1fr);}.dash-metrics{grid-template-columns:repeat(2,1fr);}.main-content{padding:16px 12px 36px;}.landing-hero{padding:30px 18px;}.landing-hero h1{font-size:1.9rem;}.hero-stats{gap:20px;flex-wrap:wrap;}}
 @media(max-width:560px){.features-grid{grid-template-columns:1fr;}}
 "
@@ -342,6 +355,13 @@ table.dataTable tbody tr.selected td{background:#EBF3FF!important;}
 
 # ── JS navigation ─────────────────────────────────────────────────────────────
 APP_JS <- "
+// Handler bannière licence
+Shiny.addCustomMessageHandler('addBodyClass', function(cls) {
+  document.body.classList.add(cls);
+});
+Shiny.addCustomMessageHandler('removeBodyClass', function(cls) {
+  document.body.classList.remove(cls);
+});
 // Cacher le nav natif du tabsetPanel principal
 function hideMainNav(){
   var navs = document.querySelectorAll('ul.nav.nav-tabs, ul.nav.nav-pills, ul.nav');
@@ -384,8 +404,13 @@ ui <- fluidPage(
       tags$button(class="hnav-btn", onclick="$('a[data-value=\"Import\"]').tab('show')",           "Import"),
       tags$button(class="hnav-btn", onclick="$('a[data-value=\"Analyse externe\"]').tab('show')", "Analyse externe")
     ),
+    # Badge licence (trial/premium/expiré)
+    uiOutput("header_licence_badge"),
     uiOutput("header_drive_badge")
   ),
+
+  # ── Bannière licence (compte à rebours ou expiration) ─────────────────────
+  uiOutput("licence_banner"),
 
   div(class = "main-content",
     tabsetPanel(id = "main_tabs",
