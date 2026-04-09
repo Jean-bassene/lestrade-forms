@@ -34,7 +34,8 @@ server <- function(input, output, session) {
     qr_tmp_path      = NULL,   # chemin PNG QR temporaire
     qr_uid           = NULL,   # UID du questionnaire affiché
     qr_quest_id      = NULL,   # ID questionnaire pour le modal QR
-    drive_connected  = FALSE   # statut connexion Drive Desktop
+    drive_connected  = FALSE,  # statut connexion Drive Desktop
+    panier_sheet_url = NULL    # URL du Sheet panier créé
   )
 
   # ── Connexion Google Drive Desktop ─────────────────────────────────────────
@@ -911,7 +912,9 @@ server <- function(input, output, session) {
       return()
     }
 
-    # Sheet créé — guider pour le déploiement Apps Script (étape manuelle unique)
+    # Sauvegarder l'URL du Sheet pour le bouton "Ouvrir"
+    rv$panier_sheet_url <- result$sheet_url
+
     gs_file <- normalizePath(
       file.path(dirname(DB_PATH), "lestrade_panier.gs"), mustWork = FALSE)
 
@@ -924,26 +927,42 @@ server <- function(input, output, session) {
         p(tags$strong("Maintenant déployez le Apps Script (une seule fois) :")),
         tags$ol(
           tags$li(
-            "Ouvrez le Sheet : ",
-            tags$a(href = result$sheet_url, target = "_blank",
-                   class = "btn btn-sm btn-primary", "Ouvrir Lestrade_Panier →")
+            "Ouvrez le Sheet dans votre navigateur :",
+            br(),
+            actionButton("btn_open_sheet_browser", "🌐 Ouvrir le Sheet",
+                         class = "btn-primary btn-sm", style = "margin:4px 0;"),
+            br(),
+            tags$small("ou copiez cette URL : "),
+            tags$code(style = "font-size:11px; word-break:break-all;", result$sheet_url)
           ),
           tags$li("Extensions → ", tags$strong("Apps Script")),
-          tags$li("Effacez le code existant, copiez-collez le contenu de :"),
-          tags$li(tags$code(gs_file)),
+          tags$li(
+            "Effacez le code existant, copiez-collez le contenu de :",
+            br(), tags$code(gs_file)
+          ),
           tags$li("Sauvegardez (Ctrl+S)"),
           tags$li(
             "Cliquez ", tags$strong("Déployer → Nouveau déploiement"), br(),
-            "Type : Application Web", br(),
-            "Exécuter en tant que : ", tags$strong("Moi"), br(),
-            "Qui a accès : ", tags$strong("Tout le monde"), br(),
-            "→ ", tags$strong("Déployer"), " → Autorisez → copiez l'URL"
+            "· Type : ", tags$strong("Application Web"), br(),
+            "· Exécuter en tant que : ", tags$strong("Moi"), br(),
+            "· Qui a accès : ", tags$strong("Tout le monde"), br(),
+            "→ ", tags$strong("Déployer"), " → Autorisez → ", tags$strong("copiez l'URL /exec")
           ),
-          tags$li("Revenez ici → ", tags$strong("⚙ URL manuelle"), " → collez l'URL → Enregistrer")
+          tags$li(
+            "Revenez ici → ", tags$strong("⚙ URL manuelle"), " → collez l'URL → Enregistrer"
+          )
         )
       ),
       footer = modalButton("J'ai compris")
     ))
+  })
+
+  # Ouvrir le Sheet dans le navigateur système
+  observeEvent(input$btn_open_sheet_browser, {
+    url <- rv$panier_sheet_url
+    if (!is.null(url) && nzchar(url)) {
+      browseURL(url)
+    }
   })
 
   # Configuration du panier
