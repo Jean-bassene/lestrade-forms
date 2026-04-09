@@ -973,20 +973,46 @@ server <- function(input, output, session) {
       size  = "m",
       div(
         p(class="hint-text",
-          "Déployez le script ", tags$code("lestrade_panier.gs"),
-          " dans Google Apps Script, puis collez l'URL ici."),
-        p(class="hint-text",
-          tags$strong("Étapes :"), " Google Sheets → Extensions → Apps Script → ",
-          "coller le code → Déployer → Application Web → Accès : Tout le monde."),
+          "Collez l'URL de déploiement du Apps Script (elle doit terminer par ",
+          tags$code("/exec"), ")."),
+        div(class="alert alert-info", style="font-size:12px;",
+          "✔ URL correcte : ", tags$code("https://script.google.com/macros/s/AKfycb.../exec"), br(),
+          "✘ URL incorrecte : ", tags$code("https://script.google.com/d/.../edit")
+        ),
         textInput("panier_url_input", "URL du Apps Script Web App",
                   value = current_url, width = "100%",
-                  placeholder = "https://script.google.com/macros/s/.../exec")
+                  placeholder = "https://script.google.com/macros/s/.../exec"),
+        uiOutput("panier_test_result_ui")
       ),
       footer = tagList(
         modalButton("Annuler"),
-        actionButton("btn_panier_save_url", "💾 Enregistrer", class = "btn-primary")
+        actionButton("btn_panier_test_url",  "🔍 Tester",      class = "btn-info"),
+        actionButton("btn_panier_save_url",  "💾 Enregistrer", class = "btn-primary")
       )
     ))
+  })
+
+  output$panier_test_result_ui <- renderUI({ NULL })
+
+  observeEvent(input$btn_panier_test_url, {
+    url <- trimws(input$panier_url_input)
+    if (!nzchar(url)) {
+      output$panier_test_result_ui <- renderUI(
+        div(class="alert alert-warning", style="margin-top:8px;", "Entrez une URL d'abord."))
+      return()
+    }
+    output$panier_test_result_ui <- renderUI(
+      div(style="margin-top:8px;color:#888;", "Test en cours..."))
+    result <- panier_check(url)
+    if (result$ok) {
+      output$panier_test_result_ui <- renderUI(
+        div(class="alert alert-success", style="margin-top:8px;",
+            sprintf("✓ Panier accessible — %d réponse(s) en attente.", result$nb)))
+    } else {
+      output$panier_test_result_ui <- renderUI(
+        div(class="alert alert-danger", style="margin-top:8px;white-space:pre-wrap;",
+            result$msg))
+    }
   })
 
   observeEvent(input$btn_panier_save_url, {

@@ -1018,7 +1018,20 @@ panier_check <- function(url = get_panier_url()) {
   if (is.null(url)) return(list(ok = FALSE, msg = "URL panier non configurée"))
   tryCatch({
     resp <- httr::GET(paste0(url, "?action=info"), httr::timeout(8))
-    body <- httr::content(resp, as = "parsed", type = "application/json")
+    raw  <- httr::content(resp, as = "text", encoding = "UTF-8")
+
+    # Détecter si la réponse est du HTML (mauvaise URL ou pas déployé)
+    if (grepl("^\\s*<!DOCTYPE|^\\s*<html", raw, ignore.case = TRUE)) {
+      return(list(ok = FALSE, msg = paste0(
+        "L'URL retourne une page HTML au lieu de JSON.\n",
+        "Vérifiez que :\n",
+        "1. L'URL se termine bien par /exec\n",
+        "2. Le Apps Script est déployé en Application Web\n",
+        "3. Accès = 'Tout le monde' (pas 'Tout le monde connecté')"
+      )))
+    }
+
+    body <- jsonlite::fromJSON(raw, simplifyVector = FALSE)
     if (!is.null(body$status) && body$status == "ok") {
       list(ok = TRUE, nb = body$nb_reponses %||% 0)
     } else {
