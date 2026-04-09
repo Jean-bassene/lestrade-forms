@@ -1,0 +1,35 @@
+# Base de données SQLite (données locales)
+*.db
+*.sqlite
+
+# Logs et fichiers temporaires
+*.log
+*.tmp
+Rplots.pdf
+
+# Packages R buildés
+*.tar.gz
+*.zip
+
+# Fichiers R temporaires
+.Rhistory
+.RData
+.Rproj.user/
+
+# Flutter build outputs
+lestrade_flutter_new/build/
+lestrade_flutter_new/.dart_tool/
+lestrade_flutter_new/.flutter-plugins
+lestrade_flutter_new/.flutter-plugins-dependencies
+lestrade_flutter_new/android/.gradle/
+lestrade_flutter_new/android/app/google-services.json
+
+# Cache Google Drive / tokens OAuth (JAMAIS committer)
+*.rds
+*.cache
+lestrade_drive_cache/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini

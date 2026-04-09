@@ -1,0 +1,47 @@
+name: lestrade_forms
+description: Application de collecte terrain Lestrade Forms pour Caritas
+
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # HTTP
+  http: ^1.2.0
+
+  # SQLite local
+  sqflite: ^2.3.0
+  path: ^1.9.0
+
+  # JSON
+  # (inclus dans dart:convert)
+
+  # Partage de préférences (IP du serveur, etc.)
+  shared_preferences: ^2.2.0
+
+  # Scanner QR (caméra native)
+  mobile_scanner: ^5.1.0
+
+  # Génération QR code (affichage)
+  qr_flutter: ^4.1.0
+
+  # Connectivité réseau
+  connectivity_plus: ^6.0.0
+
+  # UI icons
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/

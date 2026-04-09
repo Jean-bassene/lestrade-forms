@@ -1,0 +1,392 @@
+// ============================================================================
+// screens/formulaire_screen.dart — Saisie d'une réponse (offline)
+// ============================================================================
+
+import 'package:flutter/material.dart';
+import 'dart:math';
+import '../models/questionnaire.dart';
+import '../models/reponse.dart';
+import '../services/db_service.dart';
+
+String _generateUuid() {
+  final rng = Random.secure();
+  final bytes = List.generate(16, (_) => rng.nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  String hex(int b) => b.toRadixString(16).padLeft(2, '0');
+  return '${hex(bytes[0])}${hex(bytes[1])}${hex(bytes[2])}${hex(bytes[3])}-'
+      '${hex(bytes[4])}${hex(bytes[5])}-${hex(bytes[6])}${hex(bytes[7])}-'
+      '${hex(bytes[8])}${hex(bytes[9])}-'
+      '${bytes.sublist(10).map(hex).join()}';
+}
+
+class FormulaireScreen extends StatefulWidget {
+  final int questId;
+
+  const FormulaireScreen({super.key, required this.questId});
+
+  @override
+  State<FormulaireScreen> createState() => _FormulaireScreenState();
+}
+
+class _FormulaireScreenState extends State<FormulaireScreen> {
+  QuestionnaireFull? _full;
+  bool _loading = true;
+  bool _saving = false;
+
+  // Stocker les réponses : clé = "q_<id>"
+  final Map<String, dynamic> _answers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final full = await DbService.getQuestionnaireFull(widget.questId);
+    if (mounted) setState(() { _full = full; _loading = false; });
+  }
+
+  Future<void> _submit() async {
+    if (_full == null) return;
+
+    // Vérifier les champs obligatoires
+    final missing = <String>[];
+    for (final q in _full!.questions) {
+      if (q.obligatoire) {
+        final val = _answers['q_${q.id}'];
+        if (val == null || val.toString().trim().isEmpty ||
+            (val is List && val.isEmpty)) {
+          missing.add(q.texte);
+        }
+      }
+    }
+
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Champs requis : ${missing.take(3).join(', ')}'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final reponse = Reponse(
+        uuid: _generateUuid(),
+        questionnaireId: widget.questId,
+        horodateur: DateTime.now().toIso8601String(),
+        donnees: Map<String, dynamic>.from(_answers),
+        syncPending: true,
+      );
+      await DbService.saveReponse(reponse);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Réponse enregistrée (offline)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Remettre à zéro pour une nouvelle saisie
+        setState(() { _answers.clear(); _saving = false; });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        );
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_full == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Formulaire')),
+        body: const Center(child: Text('Questionnaire introuvable')),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_full!.questionnaire.nom),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.check),
+            onPressed: _saving ? null : _submit,
+            tooltip: 'Enregistrer',
+          )
+        ],
+      ),
+      body: _saving
+          ? const Center(child: CircularProgressIndicator())
+          : _buildForm(),
+      bottomNavigationBar: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          top: 8,
+        ),
+        child: ElevatedButton.icon(
+          icon: const Icon(Icons.save),
+          label: const Text('Enregistrer la réponse'),
+          onPressed: _saving ? null : _submit,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForm() {
+    final sections = _full!.sections;
+    final questions = _full!.questions;
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: sections.length,
+      itemBuilder: (ctx, si) {
+        final section = sections[si];
+        final sectionQuestions = questions
+            .where((q) => q.sectionId == section.id)
+            .toList()
+          ..sort((a, b) => a.ordre.compareTo(b.ordre));
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (si > 0) const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF003366),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                section.nom,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...sectionQuestions.map((q) => _buildQuestion(q)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildQuestion(Question q) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    q.texte,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (q.obligatoire)
+                  const Text(' *', style: TextStyle(color: Colors.red)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _buildInput(q),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInput(Question q) {
+    // Clé sans préfixe pour compatibilité avec le format Desktop (parse_reponses_to_wide)
+    final key = '${q.id}';
+
+    switch (q.type) {
+      // ── Texte ────────────────────────────────────────────────────────
+      case 'text':
+      case 'email':
+      case 'phone':
+        return TextFormField(
+          decoration: InputDecoration(
+            border: const OutlineInputBorder(),
+            hintText: q.type == 'email'
+                ? 'exemple@email.com'
+                : q.type == 'phone'
+                    ? '+243...'
+                    : null,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          keyboardType: q.type == 'email'
+              ? TextInputType.emailAddress
+              : q.type == 'phone'
+                  ? TextInputType.phone
+                  : TextInputType.text,
+          onChanged: (v) => _answers[key] = v,
+        );
+
+      case 'textarea':
+        return TextFormField(
+          maxLines: 4,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            contentPadding:
+                EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          onChanged: (v) => _answers[key] = v,
+        );
+
+      // ── Date ─────────────────────────────────────────────────────────
+      case 'date':
+        final currentVal = _answers[key] as String?;
+        return InkWell(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: DateTime.now(),
+              firstDate: DateTime(2000),
+              lastDate: DateTime(2100),
+            );
+            if (picked != null && mounted) {
+              setState(() {
+                _answers[key] =
+                    picked.toIso8601String().substring(0, 10);
+              });
+            }
+          },
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              suffixIcon: Icon(Icons.calendar_today),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            child: Text(
+              currentVal ?? 'Sélectionner une date',
+              style: TextStyle(
+                color: currentVal != null ? Colors.black87 : Colors.grey,
+              ),
+            ),
+          ),
+        );
+
+      // ── Choix unique (radio) ──────────────────────────────────────────
+      case 'radio':
+      case 'dropdown':
+        final opts = q.parsedOptions;
+        if (opts.isEmpty) {
+          return const Text('(aucune option définie)',
+              style: TextStyle(color: Colors.grey));
+        }
+        if (q.type == 'dropdown') {
+          return DropdownButtonFormField<String>(
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+            value: _answers[key] as String?,
+            items: opts
+                .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+                .toList(),
+            onChanged: (v) => setState(() => _answers[key] = v),
+          );
+        }
+        // Radio
+        final current = _answers[key] as String?;
+        return Column(
+          children: opts
+              .map((o) => RadioListTile<String>(
+                    title: Text(o),
+                    value: o,
+                    groupValue: current,
+                    dense: true,
+                    activeColor: const Color(0xFF003366),
+                    onChanged: (v) => setState(() => _answers[key] = v),
+                  ))
+              .toList(),
+        );
+
+      // ── Choix multiples (checkbox) ────────────────────────────────────
+      case 'checkbox':
+        final opts = q.parsedOptions;
+        if (opts.isEmpty) {
+          return const Text('(aucune option définie)',
+              style: TextStyle(color: Colors.grey));
+        }
+        final selected =
+            ((_answers[key] as List<String>?) ?? <String>[]);
+        return Column(
+          children: opts
+              .map((o) => CheckboxListTile(
+                    title: Text(o),
+                    value: selected.contains(o),
+                    dense: true,
+                    activeColor: const Color(0xFF003366),
+                    onChanged: (checked) {
+                      setState(() {
+                        final list =
+                            List<String>.from(_answers[key] ?? []);
+                        if (checked == true) {
+                          list.add(o);
+                        } else {
+                          list.remove(o);
+                        }
+                        _answers[key] = list;
+                      });
+                    },
+                  ))
+              .toList(),
+        );
+
+      // ── Likert ───────────────────────────────────────────────────────
+      case 'likert':
+        final current = _answers[key] as int?;
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(5, (i) {
+            final val = i + 1;
+            final selected = current == val;
+            return GestureDetector(
+              onTap: () => setState(() => _answers[key] = val),
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: selected
+                    ? const Color(0xFFF59E0B)
+                    : Colors.grey.shade200,
+                child: Text(
+                  '$val',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: selected ? Colors.white : Colors.black54,
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+
+      default:
+        return TextFormField(
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+          onChanged: (v) => _answers[key] = v,
+        );
+    }
+  }
+}
