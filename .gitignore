@@ -28,6 +28,8 @@ lestrade_flutter_new/android/app/google-services.json
 *.rds
 *.cache
 lestrade_drive_cache/
+.secrets_desktop/
+.secrets_mobile/
 
 # Fichiers système
 .DS_Store

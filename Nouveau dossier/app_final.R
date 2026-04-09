@@ -41,7 +41,8 @@ start_api_background <- function() {
     message("DB : ", db_path)
 
     .api_process <<- callr::r_bg(
-      func = function(plumber_file, db_path, work_dir, port) {
+      func = function(plumber_file, db_path, work_dir, port, lib_paths) {
+        .libPaths(lib_paths)
         Sys.setenv(LESTRADE_DB_PATH = db_path)
         setwd(work_dir)
         library(plumber)
@@ -52,7 +53,8 @@ start_api_background <- function() {
         plumber_file = plumber_file,
         db_path      = db_path,
         work_dir     = work_dir,
-        port         = 8765
+        port         = 8765,
+        lib_paths    = .libPaths()
       ),
       stdout = .api_log,
       stderr = .api_err
