@@ -589,6 +589,27 @@ ui <- fluidPage(
       # ══ IMPORT ═════════════════════════════════════════════════════════════
       tabPanel("Import",
 
+        # ── Bloc Panier Apps Script ───────────────────────────────────────────
+        div(class="panel-block", style="margin-bottom:16px;",
+          div(class="badge-tag", style="background:#0D6EFD;color:#fff;", "📦 Panier Apps Script"),
+          fluidRow(
+            column(8,
+              p(class="hint-text", style="margin-bottom:8px;",
+                "Importez les réponses envoyées par les agents via le panier Google Sheet.",
+                "Fonctionne sur tout réseau (WiFi, 4G) sans connexion au même réseau."),
+              uiOutput("panier_status_ui")
+            ),
+            column(4, style="text-align:right;",
+              actionButton("btn_panier_import", "📦 Importer le panier",
+                           class="btn-primary", style="margin-bottom:8px;width:100%;"),
+              actionButton("btn_panier_config", "⚙ Configurer le panier",
+                           class="btn-secondary", style="width:100%;"),
+              br(), br(),
+              uiOutput("panier_import_result_ui")
+            )
+          )
+        ),
+
         # ── Bloc sync Drive → Desktop ─────────────────────────────────────────
         div(class="panel-block", style="margin-bottom:16px;",
           div(class="badge-tag","Synchronisation Google Drive"),

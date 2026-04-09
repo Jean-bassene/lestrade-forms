@@ -829,6 +829,81 @@ server <- function(input, output, session) {
       type="message", duration=6)
   })
 
+  # ── PANIER APPS SCRIPT ────────────────────────────────────────────────────
+
+  output$panier_status_ui <- renderUI({
+    url <- get_panier_url()
+    if (is.null(url)) {
+      span(style="color:#888;font-size:13px;", "Panier non configuré — cliquez sur ⚙ Configurer.")
+    } else {
+      span(style="color:#0D6EFD;font-size:13px;font-family:monospace;",
+           "✓ ", tags$code(substr(url, 1, 60), if(nchar(url)>60) "..." else ""))
+    }
+  })
+
+  output$panier_import_result_ui <- renderUI({ NULL })
+
+  # Configuration du panier
+  observeEvent(input$btn_panier_config, {
+    current_url <- get_panier_url() %||% ""
+    showModal(modalDialog(
+      title = "⚙ Configurer le panier Google Sheet",
+      size  = "m",
+      div(
+        p(class="hint-text",
+          "Déployez le script ", tags$code("lestrade_panier.gs"),
+          " dans Google Apps Script, puis collez l'URL ici."),
+        p(class="hint-text",
+          tags$strong("Étapes :"), " Google Sheets → Extensions → Apps Script → ",
+          "coller le code → Déployer → Application Web → Accès : Tout le monde."),
+        textInput("panier_url_input", "URL du Apps Script Web App",
+                  value = current_url, width = "100%",
+                  placeholder = "https://script.google.com/macros/s/.../exec")
+      ),
+      footer = tagList(
+        modalButton("Annuler"),
+        actionButton("btn_panier_save_url", "💾 Enregistrer", class = "btn-primary")
+      )
+    ))
+  })
+
+  observeEvent(input$btn_panier_save_url, {
+    url <- trimws(input$panier_url_input)
+    if (!nzchar(url) || !startsWith(url, "https://")) {
+      showNotification("URL invalide — doit commencer par https://", type = "error")
+      return()
+    }
+    save_panier_url(url)
+    removeModal()
+    showNotification("✓ URL panier enregistrée", type = "message")
+  })
+
+  # Import depuis le panier
+  observeEvent(input$btn_panier_import, {
+    url <- get_panier_url()
+    if (is.null(url)) {
+      showNotification("Configurez d'abord le panier (⚙ Configurer).", type = "warning")
+      return()
+    }
+    withProgress(message = "Import du panier en cours...", value = 0.5, {
+      result <- tryCatch(
+        panier_import(url = url, clear_after = TRUE),
+        error = function(e) list(error = e$message)
+      )
+    })
+    if (!is.null(result$error)) {
+      output$panier_import_result_ui <- renderUI(
+        div(class="alert alert-danger", style="margin-top:8px;",
+            "Erreur : ", result$error))
+    } else {
+      rv$refresh_reponses <- (rv$refresh_reponses %||% 0) + 1
+      output$panier_import_result_ui <- renderUI(
+        div(class="alert alert-success", style="margin-top:8px;",
+            sprintf("✓ %d réponse(s) importée(s), %d ignorée(s) (doublons)",
+                    result$imported, result$skipped)))
+    }
+  })
+
   # ── IMPORT DEPUIS DRIVE ────────────────────────────────────────────────────
   output$drive_sync_status_ui <- renderUI({
     if (rv$drive_connected)

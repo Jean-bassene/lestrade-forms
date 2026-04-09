@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/api_service.dart';
 import '../services/db_service.dart';
+import '../services/sync_service.dart';
 import 'formulaire_screen.dart';
 
 class ScannerScreen extends StatefulWidget {
@@ -121,7 +122,13 @@ class _ScannerScreenState extends State<ScannerScreen>
         final ip  = meta['ip']?.toString()  ?? '';
         final port = meta['port'] is int ? meta['port'] as int : 8765;
 
-        // Auto-configurer le serveur si l'IP est dans le QR
+        // QR v2 : panier_url → sync sur tout réseau
+        final panierUrl = meta['panier_url']?.toString() ?? '';
+        if (panierUrl.isNotEmpty) {
+          await SyncService.setPanierUrl(panierUrl);
+        }
+
+        // QR v1 : ip → configurer le serveur WiFi local
         if (ip.isNotEmpty && ip != '127.0.0.1') {
           final serverUrl = 'http://$ip:$port';
           await ApiService.setBaseUrl(serverUrl);

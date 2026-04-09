@@ -6,6 +6,7 @@
 library(RSQLite); library(DBI); library(dplyr); library(jsonlite)
 library(lubridate); library(ggplot2); library(plotly); library(tidyr)
 library(RColorBrewer); library(stringi); library(readxl); library(readr)
+library(httr)
 
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0) y else x
 
@@ -957,6 +958,113 @@ import_quest_from_json <- function(json_str) {
     }
     as.integer(new_id)
   })
+}
+
+# ============================================================================
+# PANIER — Apps Script Web App
+# ============================================================================
+
+# Récupère l'URL du panier depuis un fichier de config local
+PANIER_CONFIG_FILE <- file.path(tools::R_user_dir("LestradeApp", "config"), "panier_url.txt")
+
+get_panier_url <- function() {
+  tryCatch({
+    url <- trimws(readLines(PANIER_CONFIG_FILE, warn = FALSE)[1])
+    if (nzchar(url)) url else NULL
+  }, error = function(e) NULL)
+}
+
+save_panier_url <- function(url) {
+  dir.create(dirname(PANIER_CONFIG_FILE), recursive = TRUE, showWarnings = FALSE)
+  writeLines(trimws(url), PANIER_CONFIG_FILE)
+}
+
+# Vérifie que le panier est joignable
+panier_check <- function(url = get_panier_url()) {
+  if (is.null(url)) return(list(ok = FALSE, msg = "URL panier non configurée"))
+  tryCatch({
+    resp <- httr::GET(paste0(url, "?action=info"), httr::timeout(8))
+    body <- httr::content(resp, as = "parsed", type = "application/json")
+    if (!is.null(body$status) && body$status == "ok") {
+      list(ok = TRUE, nb = body$nb_reponses %||% 0)
+    } else {
+      list(ok = FALSE, msg = body$message %||% "Réponse inattendue")
+    }
+  }, error = function(e) list(ok = FALSE, msg = e$message))
+}
+
+# Importe les réponses du panier vers la DB locale
+panier_import <- function(quest_id = NULL, url = get_panier_url(), clear_after = TRUE) {
+  if (is.null(url)) stop("URL panier non configurée")
+  qparam <- if (!is.null(quest_id)) paste0("&quest_id=", quest_id) else ""
+  resp <- httr::GET(paste0(url, "?action=list", qparam), httr::timeout(15))
+  body <- httr::content(resp, as = "parsed", type = "application/json")
+  if (is.null(body$reponses)) stop(body$message %||% "Erreur lecture panier")
+
+  reponses <- body$reponses
+  if (length(reponses) == 0) return(list(imported = 0, skipped = 0))
+
+  con <- dbConnect(SQLite(), DB_PATH)
+  on.exit(dbDisconnect(con), add = TRUE)
+
+  cols <- dbGetQuery(con, "PRAGMA table_info(reponses)")$name
+  if (!"uuid" %in% cols)
+    dbExecute(con, "ALTER TABLE reponses ADD COLUMN uuid TEXT")
+
+  existing_uuids <- dbGetQuery(con, "SELECT uuid FROM reponses WHERE uuid IS NOT NULL")$uuid
+
+  imported <- 0L; skipped <- 0L
+  for (rep in reponses) {
+    qid  <- as.integer(rep$quest_id %||% quest_id)
+    uuid <- trimws(as.character(rep$uuid %||% ""))
+    if (uuid != "" && uuid %in% existing_uuids) { skipped <- skipped + 1L; next }
+    horo <- trimws(gsub("T", " ", as.character(rep$horodateur %||% "")))
+    json <- as.character(rep$donnees_json %||% "{}")
+    dbExecute(con,
+      "INSERT INTO reponses (questionnaire_id, horodateur, donnees_json, uuid) VALUES (?,?,?,?)",
+      list(qid, horo, json, if (uuid != "") uuid else NA_character_))
+    existing_uuids <- c(existing_uuids, uuid)
+    imported <- imported + 1L
+  }
+
+  if (clear_after && imported > 0) {
+    qparam2 <- if (!is.null(quest_id)) paste0("&quest_id=", quest_id) else ""
+    tryCatch(
+      httr::GET(paste0(url, "?action=clear", qparam2), httr::timeout(10)),
+      error = function(e) NULL
+    )
+  }
+
+  list(imported = imported, skipped = skipped)
+}
+
+# Génère le QR code panier (URL Apps Script dans le QR au lieu de l'IP locale)
+export_quest_to_qr_panier <- function(quest_id, panier_url = get_panier_url()) {
+  if (is.null(panier_url)) stop("URL panier non configurée — configurez le panier d'abord.")
+  if (!requireNamespace("digest", quietly = TRUE)) stop("Package 'digest' requis.")
+  full <- get_questionnaire_full(quest_id)
+  if (is.null(full)) stop("Questionnaire introuvable.")
+
+  uid <- generate_quest_uid(quest_id, full$questionnaire$nom)
+
+  meta <- list(
+    v          = "2.0",         # version panier
+    uid        = uid,
+    nom        = full$questionnaire$nom,
+    nq         = nrow(full$questions),
+    ns         = nrow(full$sections),
+    panier_url = panier_url,    # URL publique Apps Script
+    quest_id   = quest_id
+  )
+  json_str <- as.character(toJSON(meta, auto_unbox = TRUE))
+
+  list(
+    json        = json_str,
+    uid         = uid,
+    nom         = full$questionnaire$nom,
+    n_questions = nrow(full$questions),
+    n_chars     = nchar(json_str)
+  )
 }
 
 # ============================================================================
