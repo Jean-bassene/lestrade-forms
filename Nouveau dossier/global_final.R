@@ -979,6 +979,129 @@ save_panier_url <- function(url) {
   writeLines(trimws(url), PANIER_CONFIG_FILE)
 }
 
+# ── Création automatique du panier (Sheet + Apps Script) ────────────────────
+# Appelé quand le coordinateur clique "Créer le panier automatiquement"
+# Nécessite : googledrive connecté + scope script.projects autorisé
+create_panier_automatique <- function() {
+  if (!requireNamespace("googlesheets4", quietly = TRUE))
+    stop("Package 'googlesheets4' requis. Installez-le : install.packages('googlesheets4')")
+  if (!requireNamespace("googledrive",   quietly = TRUE))
+    stop("Package 'googledrive' requis.")
+
+  # Récupérer le token Drive actuel (déjà authentifié via le badge Drive)
+  token <- tryCatch(googledrive::drive_token(), error = function(e) NULL)
+  if (is.null(token)) stop("Connectez-vous d'abord à Google Drive (badge en haut à droite).")
+
+  # 1. Créer le Google Sheet ──────────────────────────────────────────────────
+  message("Création du Google Sheet Lestrade_Panier...")
+  googlesheets4::gs4_auth(token = token)
+  ss <- googlesheets4::gs4_create(
+    name   = "Lestrade_Panier",
+    sheets = list(Panier = data.frame(
+      quest_id     = character(),
+      uuid         = character(),
+      horodateur   = character(),
+      donnees_json = character(),
+      recu_le      = character()
+    ))
+  )
+  sheet_id <- googledrive::as_id(ss)
+  message("Sheet créé : ", sheet_id)
+
+  # 2. Lire le code Apps Script depuis le fichier .gs ─────────────────────────
+  gs_file <- system.file("app", "lestrade_panier.gs", package = "LestradeApp")
+  if (!nzchar(gs_file) || !file.exists(gs_file)) {
+    # fallback : chercher dans le dossier courant
+    gs_file <- file.path(dirname(DB_PATH), "lestrade_panier.gs")
+  }
+  if (!file.exists(gs_file))
+    stop("Fichier lestrade_panier.gs introuvable.")
+  gs_code <- paste(readLines(gs_file, warn = FALSE), collapse = "\n")
+
+  # 3. Créer le projet Apps Script lié au Sheet ───────────────────────────────
+  message("Création du Apps Script...")
+  create_resp <- httr::POST(
+    "https://script.googleapis.com/v1/projects",
+    httr::config(token = token),
+    httr::content_type_json(),
+    body = jsonlite::toJSON(list(
+      title    = jsonlite::unbox("Lestrade Panier"),
+      parentId = jsonlite::unbox(as.character(sheet_id))
+    ), auto_unbox = FALSE)
+  )
+  if (httr::http_error(create_resp)) {
+    stop("Erreur création Apps Script : ", httr::content(create_resp, as = "text"))
+  }
+  script_id <- httr::content(create_resp)$scriptId
+  message("Script ID : ", script_id)
+
+  # 4. Pousser le code dans le projet ─────────────────────────────────────────
+  message("Upload du code...")
+  appsscript_json <- jsonlite::toJSON(list(
+    timeZone       = jsonlite::unbox("Africa/Dakar"),
+    dependencies   = list(),
+    exceptionLogging = jsonlite::unbox("STACKDRIVER"),
+    runtimeVersion = jsonlite::unbox("V8"),
+    webapp = list(
+      executeAs = jsonlite::unbox("USER_DEPLOYING"),
+      access    = jsonlite::unbox("ANYONE_ANONYMOUS")
+    )
+  ), auto_unbox = FALSE)
+
+  content_resp <- httr::PUT(
+    paste0("https://script.googleapis.com/v1/projects/", script_id, "/content"),
+    httr::config(token = token),
+    httr::content_type_json(),
+    body = jsonlite::toJSON(list(
+      files = list(
+        list(name = "Code",       type = "SERVER_JS", source = gs_code),
+        list(name = "appsscript", type = "JSON",      source = as.character(appsscript_json))
+      )
+    ), auto_unbox = FALSE)
+  )
+  if (httr::http_error(content_resp))
+    stop("Erreur upload code : ", httr::content(content_resp, as = "text"))
+
+  # 5. Créer une version puis déployer ────────────────────────────────────────
+  message("Déploiement comme Web App publique...")
+  version_resp <- httr::POST(
+    paste0("https://script.googleapis.com/v1/projects/", script_id, "/versions"),
+    httr::config(token = token),
+    httr::content_type_json(),
+    body = '{"description":"v1"}'
+  )
+  version_num <- httr::content(version_resp)$versionNumber %||% 1
+
+  deploy_resp <- httr::POST(
+    paste0("https://script.googleapis.com/v1/projects/", script_id, "/deployments"),
+    httr::config(token = token),
+    httr::content_type_json(),
+    body = jsonlite::toJSON(list(
+      versionNumber    = jsonlite::unbox(as.integer(version_num)),
+      manifestFileName = jsonlite::unbox("appsscript"),
+      description      = jsonlite::unbox("Lestrade Panier v1")
+    ), auto_unbox = FALSE)
+  )
+  if (httr::http_error(deploy_resp))
+    stop("Erreur déploiement : ", httr::content(deploy_resp, as = "text"))
+
+  deploy_id  <- httr::content(deploy_resp)$deploymentId
+  panier_url <- paste0(
+    "https://script.google.com/macros/s/", deploy_id, "/exec"
+  )
+
+  # 6. Sauvegarder l'URL localement ───────────────────────────────────────────
+  save_panier_url(panier_url)
+  message("Panier prêt : ", panier_url)
+
+  list(
+    ok         = TRUE,
+    sheet_id   = as.character(sheet_id),
+    script_id  = script_id,
+    panier_url = panier_url
+  )
+}
+
 # Vérifie que le panier est joignable
 panier_check <- function(url = get_panier_url()) {
   if (is.null(url)) return(list(ok = FALSE, msg = "URL panier non configurée"))

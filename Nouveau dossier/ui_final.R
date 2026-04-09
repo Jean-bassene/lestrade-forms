@@ -602,8 +602,10 @@ ui <- fluidPage(
             column(4, style="text-align:right;",
               actionButton("btn_panier_import", "📦 Importer le panier",
                            class="btn-primary", style="margin-bottom:8px;width:100%;"),
-              actionButton("btn_panier_config", "⚙ Configurer le panier",
-                           class="btn-secondary", style="width:100%;"),
+              actionButton("btn_panier_create", "✨ Créer automatiquement",
+                           class="btn-success", style="margin-bottom:8px;width:100%;"),
+              actionButton("btn_panier_config", "⚙ URL manuelle",
+                           class="btn-secondary btn-sm", style="width:100%;"),
               br(), br(),
               uiOutput("panier_import_result_ui")
             )

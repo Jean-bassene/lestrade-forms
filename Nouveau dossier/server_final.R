@@ -49,7 +49,14 @@ server <- function(input, output, session) {
       gargle_oauth_cache = DESKTOP_DRIVE_CACHE,
       gargle_oob_default = FALSE
     )
-    googledrive::drive_auth(cache = DESKTOP_DRIVE_CACHE)
+    googledrive::drive_auth(
+      cache  = DESKTOP_DRIVE_CACHE,
+      scopes = c(
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/script.projects"
+      )
+    )
     TRUE
   }
 
@@ -842,6 +849,68 @@ server <- function(input, output, session) {
   })
 
   output$panier_import_result_ui <- renderUI({ NULL })
+
+  # Création automatique du panier (Sheet + Apps Script)
+  observeEvent(input$btn_panier_create, {
+    if (!rv$drive_connected) {
+      showNotification("Connectez-vous d'abord à Google Drive (badge en haut).", type = "warning")
+      return()
+    }
+    showModal(modalDialog(
+      title = "✨ Création du panier automatique",
+      size  = "s",
+      div(
+        p("Cette opération va :"),
+        tags$ol(
+          tags$li("Créer un Google Sheet ", tags$strong("Lestrade_Panier"), " dans votre Drive"),
+          tags$li("Créer et déployer le Apps Script lié"),
+          tags$li("Enregistrer l'URL automatiquement")
+        ),
+        p(class = "hint-text", "La première fois, Google peut demander d'autoriser l'accès à Apps Script.")
+      ),
+      footer = tagList(
+        modalButton("Annuler"),
+        actionButton("btn_panier_create_confirm", "✨ Créer maintenant", class = "btn-success")
+      )
+    ))
+  })
+
+  observeEvent(input$btn_panier_create_confirm, {
+    removeModal()
+    withProgress(message = "Création du panier en cours...", value = 0, {
+      setProgress(0.2, detail = "Création du Google Sheet...")
+      result <- tryCatch(
+        create_panier_automatique(),
+        error = function(e) list(ok = FALSE, error = e$message)
+      )
+    })
+    if (isTRUE(result$ok)) {
+      showNotification(
+        paste0("✓ Panier créé ! URL enregistrée automatiquement."),
+        type = "message", duration = 8
+      )
+      output$panier_import_result_ui <- renderUI(
+        div(class = "alert alert-success", style = "margin-top:8px;font-size:12px;",
+            "✓ Sheet + Apps Script créés. Le prochain QR embarquera l'URL du panier.",
+            br(), tags$code(style="font-size:10px;", get_panier_url() %||% ""))
+      )
+    } else {
+      # Si erreur de scope Apps Script → guider vers autorisation manuelle
+      err <- result$error %||% "Erreur inconnue"
+      if (grepl("403|script|scope|permission", err, ignore.case = TRUE)) {
+        showModal(modalDialog(
+          title = "Autorisation requise",
+          p("Google requiert une autorisation supplémentaire pour Apps Script."),
+          p("Cliquez le lien ci-dessous, autorisez, puis relancez la création :"),
+          tags$a(href = "https://script.google.com", target = "_blank",
+                 class = "btn btn-primary", "Ouvrir Apps Script →"),
+          footer = modalButton("Fermer")
+        ))
+      } else {
+        showNotification(paste("Erreur :", err), type = "error", duration = 10)
+      }
+    }
+  })
 
   # Configuration du panier
   observeEvent(input$btn_panier_config, {
