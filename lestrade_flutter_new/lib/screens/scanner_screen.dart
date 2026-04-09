@@ -135,7 +135,7 @@ class _ScannerScreenState extends State<ScannerScreen>
         }
 
         if (uid.isEmpty) { _showError('UID introuvable dans le QR'); return; }
-        _showImportDialog(uid, payload);
+        _showImportDialog(uid, panierUrl: panierUrl.isNotEmpty ? panierUrl : null);
         return;
       } catch (_) {
         // pas du JSON valide → continuer vers détection UID
@@ -150,10 +150,10 @@ class _ScannerScreenState extends State<ScannerScreen>
     }
 
     final uid = uidMatch.group(0)!;
-    _showImportDialog(uid, payload);
+    _showImportDialog(uid);
   }
 
-  void _showImportDialog(String uid, String raw) {
+  void _showImportDialog(String uid, {String? panierUrl}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -176,7 +176,7 @@ class _ScannerScreenState extends State<ScannerScreen>
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await _importByUid(uid);
+              await _importByUid(uid, panierUrl: panierUrl);
             },
             child: const Text('Importer'),
           ),
@@ -185,7 +185,7 @@ class _ScannerScreenState extends State<ScannerScreen>
     );
   }
 
-  Future<void> _importByUid(String uid) async {
+  Future<void> _importByUid(String uid, {String? panierUrl}) async {
     // Afficher un loader
     showDialog(
       context: context,
@@ -202,14 +202,8 @@ class _ScannerScreenState extends State<ScannerScreen>
     );
 
     try {
-      final serverOk = await ApiService.checkHealth();
-      if (!serverOk) {
-        if (mounted) Navigator.of(context, rootNavigator: true).pop();
-        _showError('Serveur inaccessible. Connectez-vous au réseau local.');
-        return;
-      }
-
-      final full = await ApiService.fetchQuestionnaireByUid(uid);
+      // fetchQuestionnaireByUid essaie WiFi d'abord, puis panier si absent
+      final full = await ApiService.fetchQuestionnaireByUid(uid, panierUrl: panierUrl);
       await DbService.saveQuestionnaire(full);
 
       if (mounted) {

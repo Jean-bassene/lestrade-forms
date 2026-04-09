@@ -408,12 +408,28 @@ server <- function(input, output, session) {
       }
     }
 
-    qid    <- rv$selected_quest
-    export <- tryCatch(export_quest_to_qr(qid, server_ip = .local_ip, server_port = 8765),
-      error=function(e) { showNotification(paste("Erreur:",e$message),type="error"); NULL })
+    qid         <- rv$selected_quest
+    panier_url  <- get_panier_url()
+    panier_ok   <- !is.null(panier_url)
+
+    # Mode panier si configuré → upload questionnaire + QR avec URL panier
+    # Mode WiFi sinon → QR avec IP locale uniquement
+    export <- tryCatch({
+      if (panier_ok) {
+        # Upload le questionnaire complet vers le panier (accessible hors WiFi)
+        tryCatch(
+          upload_quest_to_panier(qid, panier_url),
+          error = function(e) showNotification(
+            paste("⚠ Upload panier échoué:", e$message), type = "warning", duration = 6)
+        )
+        export_quest_to_qr_panier(qid, panier_url)
+      } else {
+        export_quest_to_qr(qid, server_ip = .local_ip, server_port = 8765)
+      }
+    }, error = function(e) { showNotification(paste("Erreur:", e$message), type = "error"); NULL })
     if (is.null(export)) return()
 
-    # QR code — métadonnées uniquement (~200 chars, très lisible)
+    # QR code
     tmp <- tempfile(fileext=".png")
     tryCatch({
       png(tmp, width=300, height=300, bg="white")
@@ -433,9 +449,15 @@ server <- function(input, output, session) {
       title = tags$span("📱 Partager — ", tags$strong(quest$nom)),
       size  = "m", easyClose=TRUE,
 
-      # Infos questionnaire
+      # Mode actif + infos questionnaire
       div(class="status-banner",
-        sprintf("✓ %d question(s) · %d section(s) · QR optimisé (%d chars)",
+        if (panier_ok)
+          tags$span("📦 Mode panier — fonctionne sur tout réseau (WiFi, 4G, WhatsApp…)")
+        else
+          tags$span(sprintf("📶 Mode WiFi local — IP : %s:8765", .local_ip))
+      ),
+      div(class="status-banner", style="margin-top:4px;",
+        sprintf("✓ %d question(s) · %d section(s) · QR %d chars",
                 export$n_questions,
                 nrow(get_sections_by_questionnaire(qid)),
                 export$n_chars)),

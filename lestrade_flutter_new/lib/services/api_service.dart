@@ -108,25 +108,54 @@ class ApiService {
     return QuestionnaireFull.fromJson(payload);
   }
 
-  /// Télécharge un questionnaire par son UID Drive (scanné en QR)
-  static Future<QuestionnaireFull> fetchQuestionnaireByUid(String uid) async {
-    final url = await getBaseUrl();
-    if (url.isEmpty) throw Exception('Serveur non configuré');
+  /// Télécharge un questionnaire par UID — essaie WiFi puis panier Apps Script
+  static Future<QuestionnaireFull> fetchQuestionnaireByUid(
+      String uid, {String? panierUrl}) async {
 
-    final resp = await http
-        .get(Uri.parse('$url/questionnaires/uid/$uid'))
-        .timeout(const Duration(seconds: 15));
-
-    if (resp.statusCode != 200) throw Exception('HTTP ${resp.statusCode}');
-    final body = jsonDecode(resp.body);
-
-    if (body is Map && body.containsKey('error')) {
-      throw Exception(body['error'].toString());
+    // 1. Essai via API WiFi locale
+    final wifiUrl = await getBaseUrl();
+    if (wifiUrl.isNotEmpty) {
+      try {
+        final resp = await http
+            .get(Uri.parse('$wifiUrl/questionnaires/uid/$uid'))
+            .timeout(const Duration(seconds: 10));
+        if (resp.statusCode == 200) {
+          final body = jsonDecode(resp.body);
+          if (body is Map && !body.containsKey('error')) {
+            final questPart = body['quest'] ?? body;
+            return QuestionnaireFull.fromJson(Map<String, dynamic>.from(questPart));
+          }
+        }
+      } catch (_) {
+        // WiFi indisponible → fallback panier
+      }
     }
 
-    // body contient { uid, quest: { questionnaire, sections, questions } }
+    // 2. Fallback panier Apps Script (tout réseau)
+    final pUrl = panierUrl ?? await _getStoredPanierUrl();
+    if (pUrl == null || pUrl.isEmpty) {
+      throw Exception('Serveur WiFi inaccessible et panier non configuré');
+    }
+
+    final resp = await http
+        .get(Uri.parse('$pUrl?action=get_quest&uid=${Uri.encodeComponent(uid)}'))
+        .timeout(const Duration(seconds: 15));
+
+    if (resp.statusCode != 200) throw Exception('Panier HTTP ${resp.statusCode}');
+    final body = jsonDecode(resp.body);
+
+    if (body is Map && body['status'] == 'error') {
+      throw Exception(body['message']?.toString() ?? 'Questionnaire introuvable dans le panier');
+    }
+
+    // body = { status, uid, nom, quest: { questionnaire, sections, questions } }
     final questPart = body['quest'] ?? body;
     return QuestionnaireFull.fromJson(Map<String, dynamic>.from(questPart));
+  }
+
+  static Future<String?> _getStoredPanierUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('panier_url');
   }
 
   // ─────────────────────────────────────────────────────────────────────────

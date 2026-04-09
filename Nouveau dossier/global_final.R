@@ -1190,5 +1190,32 @@ export_quest_to_qr_panier <- function(quest_id, panier_url = get_panier_url()) {
   )
 }
 
+# Upload le questionnaire complet vers le panier Apps Script
+# Appelé automatiquement lors de la génération du QR panier
+upload_quest_to_panier <- function(quest_id, panier_url = get_panier_url()) {
+  if (is.null(panier_url)) stop("URL panier non configurée.")
+
+  quest_data <- quest_to_full_json(quest_id)
+
+  body <- jsonlite::toJSON(list(
+    action     = jsonlite::unbox("save_quest"),
+    uid        = jsonlite::unbox(quest_data$uid),
+    nom        = jsonlite::unbox(quest_data$nom),
+    quest_json = jsonlite::unbox(quest_data$json)
+  ), auto_unbox = FALSE)
+
+  resp <- httr::POST(
+    panier_url,
+    httr::content_type_json(),
+    body = body,
+    httr::timeout(15)
+  )
+  result <- httr::content(resp, as = "parsed", type = "application/json")
+  if (is.null(result$status) || result$status != "ok")
+    stop(result$message %||% "Erreur upload questionnaire vers panier")
+
+  list(ok = TRUE, uid = quest_data$uid, action = result$action %||% "saved")
+}
+
 # ============================================================================
 init_db()
