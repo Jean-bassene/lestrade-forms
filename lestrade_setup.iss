@@ -45,6 +45,8 @@ Source: "{#AppDir}\inst\app\*"; DestDir: "{app}\app"; Flags: ignoreversion recur
 Source: "{#AppDir}\launcher.R"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#AppDir}\run_app.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#AppDir}\run_app.vbs"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#AppDir}\setup_drive.R"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#AppDir}\Setup Google Drive.bat"; DestDir: "{app}"; Flags: ignoreversion
 ; Base de donnees vide
 Source: "{#AppDir}\inst\extdata\questionnaires_empty.db"; DestDir: "{app}"; Flags: ignoreversion
 ; Icone LF

@@ -37,6 +37,7 @@ server <- function(input, output, session) {
     qr_uid           = NULL,
     qr_quest_id      = NULL,
     drive_connected  = FALSE,
+    drive_proc       = NULL,
     panier_sheet_url = NULL,
     # Licence
     licence_statut   = "inconnu",  # "premium"|"trial"|"expire"|"inconnu"
@@ -268,28 +269,22 @@ server <- function(input, output, session) {
   DESKTOP_DRIVE_CACHE <- file.path(tools::R_user_dir("LestradeApp", "data"), ".secrets_desktop")
   dir.create(DESKTOP_DRIVE_CACHE, recursive = TRUE, showWarnings = FALSE)
 
-  desktop_drive_connect <- function(session = NULL) {
-    if (!requireNamespace("googledrive", quietly=TRUE))
-      stop("Installez le package 'googledrive' : install.packages('googledrive')")
-
+  # Charge le token Drive depuis le cache (genere par setup_drive.R)
+  desktop_drive_connect <- function() {
+    if (!requireNamespace("googledrive", quietly = TRUE))
+      stop("Package 'googledrive' requis.")
+    if (!desktop_drive_is_ok())
+      stop("Token Google Drive absent. Lancez d'abord 'Setup Google Drive.bat' (ou setup_drive.R dans RStudio).")
     options(
       gargle_oauth_cache = DESKTOP_DRIVE_CACHE,
-      gargle_oob_default = FALSE,
-      rlang_interactive  = TRUE
+      gargle_oob_default = FALSE
     )
-
-    # Ouvrir l'URL OAuth dans le navigateur systeme Windows via ShellExecute
-    # shell.exec() gere les & dans l'URL (contrairement a shell/start)
-    old_browser <- getOption("browser")
-    options(browser = function(url) shell.exec(url))
-    on.exit(options(browser = old_browser), add = TRUE)
-
+    # Charge silencieusement le token cache — pas de navigateur
     googledrive::drive_auth(
       cache  = DESKTOP_DRIVE_CACHE,
-      scopes = c(
-        "https://www.googleapis.com/auth/drive",
-        "https://www.googleapis.com/auth/spreadsheets"
-      )
+      email  = TRUE,   # utilise n'importe quel token en cache
+      scopes = c("https://www.googleapis.com/auth/drive",
+                 "https://www.googleapis.com/auth/spreadsheets")
     )
     TRUE
   }
@@ -328,9 +323,23 @@ server <- function(input, output, session) {
 
   observeEvent(input$btn_header_drive, {
     if (!rv$drive_connected) {
-      ok <- tryCatch({ desktop_drive_connect(session); rv$drive_connected <- desktop_drive_is_ok(); TRUE },
-                     error = function(e) { showNotification(e$message, type="error"); FALSE })
-      if (ok) showNotification("✓ Google Drive connecté !", type="message")
+      if (!desktop_drive_is_ok()) {
+        showModal(modalDialog(
+          title = "Configuration Google Drive requise",
+          size  = "s", easyClose = TRUE,
+          p("Pour connecter Google Drive, vous devez d'abord générer un token d'accès."),
+          p(tags$b("1."), " Fermez Lestrade Forms"),
+          p(tags$b("2."), " Double-cliquez sur ", tags$code("Setup Google Drive.bat"),
+            " dans le dossier d'installation"),
+          p(tags$b("3."), " Connectez-vous à votre compte Google dans le navigateur"),
+          p(tags$b("4."), " Relancez Lestrade Forms — Drive sera connecté automatiquement"),
+          footer = modalButton("Compris")
+        ))
+      } else {
+        ok <- tryCatch({ desktop_drive_connect(); rv$drive_connected <- desktop_drive_is_ok(); TRUE },
+                       error = function(e) { showNotification(e$message, type = "error"); FALSE })
+        if (ok) showNotification("✓ Google Drive connecté !", type = "message")
+      }
     } else {
       showModal(modalDialog(
         title = "Google Drive",
@@ -353,17 +362,10 @@ server <- function(input, output, session) {
 
   # Bouton connecter Drive (depuis le modal QR)
   observeEvent(input$btn_desktop_connect_drive, {
-    result <- tryCatch({
-      desktop_drive_connect(session)
-      rv$drive_connected <- desktop_drive_is_ok()
-      TRUE
-    }, error=function(e) {
-      showNotification(paste("Erreur connexion Drive:", e$message), type="error", duration=8)
-      FALSE
-    })
-    if (result) {
+    ok <- tryCatch({ desktop_drive_connect(); rv$drive_connected <- desktop_drive_is_ok(); TRUE },
+                   error = function(e) { showNotification(e$message, type="error", duration=8); FALSE })
+    if (ok) {
       showNotification("✓ Google Drive connecté !", type="message")
-      # Relancer le modal QR pour mettre à jour le statut
       shinyjs::runjs("Shiny.setInputValue('btn_share_qr', Math.random(), {priority:'event'})")
     }
   })

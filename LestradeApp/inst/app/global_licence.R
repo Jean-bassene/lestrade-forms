@@ -10,7 +10,7 @@ library(httr)
 
 LICENCE_DIR  <- file.path(Sys.getenv("USERPROFILE", unset = path.expand("~")), ".lestrade")
 LICENCE_FILE <- file.path(LICENCE_DIR, "licence.json")
-TRIAL_DAYS   <- 30L
+TRIAL_DAYS   <- 90L
 
 # ── Lecture / écriture locale ─────────────────────────────────────────────────
 

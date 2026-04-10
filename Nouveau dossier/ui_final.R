@@ -410,8 +410,7 @@ ui <- fluidPage(
       tags$button(class="hnav-btn", onclick="$('a[data-value=\"Analyse externe\"]').tab('show')", "Analyse externe")
     ),
     # Badge licence (trial/premium/expiré)
-    uiOutput("header_licence_badge"),
-    uiOutput("header_drive_badge")
+    uiOutput("header_licence_badge")
   ),
 
   # ── Bannière licence (compte à rebours ou expiration) ─────────────────────
