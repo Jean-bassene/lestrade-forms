@@ -388,6 +388,7 @@ ui <- fluidPage(
   useShinyjs(),
   title = "Lestrade Forms · Enquêtes & Analyses",
   tags$head(
+    tags$link(rel = "icon", type = "image/png", href = "favicon.png"),
     tags$style(HTML(APP_CSS)),
     tags$script(HTML(APP_JS))
   ),

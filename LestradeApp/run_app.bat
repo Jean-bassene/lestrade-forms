@@ -5,6 +5,9 @@ cd /d "%~dp0"
 set LESTRADE_BASE_DIR=%~dp0
 set LESTRADE_DATA_DIR=%APPDATA%\LestradeApp
 
+:: Permet a gargle (googledrive) de faire le flow OAuth dans le navigateur
+set RSTUDIO=1
+
 :: Creer le dossier donnees utilisateur si absent
 if not exist "%LESTRADE_DATA_DIR%" mkdir "%LESTRADE_DATA_DIR%"
 
