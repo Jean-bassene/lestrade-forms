@@ -1,6 +1,21 @@
+# R-Portable embarqué (trop lourd pour git)
+LestradeApp/R-Portable/
+LestradeApp/ChromePortable/
+
+# Installeur compilé (distribué via GitHub Releases)
+installer_output/
+
+# Fichiers Excel temporaires
+~$*.xlsx
+TESTER.xlsx
+
+# Dossier claude
+.claude/
+
 # Base de données SQLite (données locales)
 *.db
 *.sqlite
+!LestradeApp/inst/extdata/questionnaires_empty.db
 
 # Logs et fichiers temporaires
 *.log
