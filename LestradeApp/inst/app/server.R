@@ -268,14 +268,25 @@ server <- function(input, output, session) {
   DESKTOP_DRIVE_CACHE <- file.path(tools::R_user_dir("LestradeApp", "data"), ".secrets_desktop")
   dir.create(DESKTOP_DRIVE_CACHE, recursive = TRUE, showWarnings = FALSE)
 
-  desktop_drive_connect <- function() {
+  desktop_drive_connect <- function(session = NULL) {
     if (!requireNamespace("googledrive", quietly=TRUE))
       stop("Installez le package 'googledrive' : install.packages('googledrive')")
-    # Désactiver OOB globalement — bloqué par Google depuis 2022
+
     options(
       gargle_oauth_cache = DESKTOP_DRIVE_CACHE,
-      gargle_oob_default = FALSE
+      gargle_oob_default = FALSE,
+      rlang_interactive  = TRUE
     )
+
+    # Intercepter browseURL pour ouvrir l'auth Google dans Chrome via Shiny
+    old_browser <- getOption("browser")
+    if (!is.null(session)) {
+      options(browser = function(url) {
+        session$sendCustomMessage("openUrl", url)
+      })
+    }
+    on.exit(options(browser = old_browser), add = TRUE)
+
     googledrive::drive_auth(
       cache  = DESKTOP_DRIVE_CACHE,
       scopes = c(
@@ -320,7 +331,7 @@ server <- function(input, output, session) {
 
   observeEvent(input$btn_header_drive, {
     if (!rv$drive_connected) {
-      ok <- tryCatch({ desktop_drive_connect(); rv$drive_connected <- desktop_drive_is_ok(); TRUE },
+      ok <- tryCatch({ desktop_drive_connect(session); rv$drive_connected <- desktop_drive_is_ok(); TRUE },
                      error = function(e) { showNotification(e$message, type="error"); FALSE })
       if (ok) showNotification("✓ Google Drive connecté !", type="message")
     } else {
@@ -346,7 +357,7 @@ server <- function(input, output, session) {
   # Bouton connecter Drive (depuis le modal QR)
   observeEvent(input$btn_desktop_connect_drive, {
     result <- tryCatch({
-      desktop_drive_connect()
+      desktop_drive_connect(session)
       rv$drive_connected <- desktop_drive_is_ok()
       TRUE
     }, error=function(e) {

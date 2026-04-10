@@ -25,4 +25,5 @@ start /B "" "R-Portable\bin\Rscript.exe" --vanilla launcher.R > "%TEMP%\lestrade
 timeout /t 10 /nobreak > nul
 
 :: Ouvrir Chrome Portable en mode app (sans barre d'adresse, comme une vraie app)
-start "" "ChromePortable\ChromePortable.exe" "--app=http://127.0.0.1:3838"
+:: --disable-popup-blocking : autorise la popup Google OAuth
+start "" "ChromePortable\ChromePortable.exe" "--app=http://127.0.0.1:3838" "--disable-popup-blocking"

@@ -362,6 +362,14 @@ Shiny.addCustomMessageHandler('addBodyClass', function(cls) {
 Shiny.addCustomMessageHandler('removeBodyClass', function(cls) {
   document.body.classList.remove(cls);
 });
+// Ouvrir URL Google OAuth dans une popup separee (garde l'app ouverte)
+Shiny.addCustomMessageHandler('openUrl', function(url) {
+  var w = window.open(url, 'google_auth', 'width=520,height=660,resizable=yes');
+  if (!w) {
+    // Si popup bloquee, ouvrir dans la meme fenetre
+    window.location.href = url;
+  }
+});
 // Cacher le nav natif du tabsetPanel principal
 function hideMainNav(){
   var navs = document.querySelectorAll('ul.nav.nav-tabs, ul.nav.nav-pills, ul.nav');
