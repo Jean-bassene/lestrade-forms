@@ -1,0 +1,10 @@
+name: lestrade-forms
+title:
+username: lestrade-forms
+account: lestrade-forms
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 17102098
+bundleId: 11831879
+url: https://lestrade-forms.shinyapps.io/lestrade-forms/
+version: 1
