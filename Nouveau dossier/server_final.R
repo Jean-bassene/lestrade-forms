@@ -226,8 +226,23 @@ server <- function(input, output, session) {
       footer = if (statut != "premium") tagList(
         modalButton("Fermer"),
         actionButton("btn_licence_activate2", "Activer", class = "btn-warning")
-      ) else modalButton("Fermer")
+      ) else tagList(
+        modalButton("Fermer"),
+        actionButton("btn_licence_reset", "Réinitialiser (test)",
+                     class = "btn-link btn-sm", style = "color:#999;font-size:11px;")
+      )
     ))
+  })
+
+  observeEvent(input$btn_licence_reset, {
+    tryCatch({
+      if (file.exists(LICENCE_FILE)) file.remove(LICENCE_FILE)
+      rv$licence_statut  <- "inconnu"
+      rv$licence_email   <- ""
+      rv$licence_jours   <- 0
+    }, error = function(e) NULL)
+    removeModal()
+    showNotification("Licence réinitialisée — redémarrez l'app pour retester.", type = "warning", duration = 6)
   })
 
   output$licence_activate_result2 <- renderUI({ NULL })

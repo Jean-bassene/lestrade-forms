@@ -21,6 +21,9 @@ Sys.setenv(LESTRADE_DATA_DIR = dirname(db_path))
 app_dir <- file.path(app_base, "app")
 if (!dir.exists(app_dir)) stop("Dossier app introuvable: ", app_dir)
 
+# Permettre le flow OAuth gargle dans une session non-interactive (Rscript)
+options(rlang_interactive = TRUE)
+
 library(shiny)
 # launch.browser = FALSE : Chrome Portable est ouvert par run_app.bat
 shiny::runApp(app_dir, port = 3838, launch.browser = FALSE, host = "127.0.0.1")
