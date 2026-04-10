@@ -17,7 +17,7 @@ var SHEET_REPONSES       = "Panier";
 var SHEET_QUESTIONNAIRES = "Questionnaires";
 var SHEET_LICENCES       = "Licences";
 var VERSION              = "3.0";
-var TRIAL_DAYS           = 30;
+var TRIAL_DAYS           = 90;
 
 // ── Feuilles ─────────────────────────────────────────────────────────────────
 
