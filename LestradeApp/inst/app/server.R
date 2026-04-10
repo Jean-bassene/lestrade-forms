@@ -278,12 +278,10 @@ server <- function(input, output, session) {
       rlang_interactive  = TRUE
     )
 
-    # Ouvrir l'URL OAuth dans le navigateur systeme Windows (pas ChromePortable)
-    # => ChromePortable reste sur l'app, Edge/Chrome gere l'auth Google
+    # Ouvrir l'URL OAuth dans le navigateur systeme Windows via ShellExecute
+    # shell.exec() gere les & dans l'URL (contrairement a shell/start)
     old_browser <- getOption("browser")
-    options(browser = function(url) {
-      shell(paste0('start "" "', url, '"'), intern = FALSE, wait = FALSE)
-    })
+    options(browser = function(url) shell.exec(url))
     on.exit(options(browser = old_browser), add = TRUE)
 
     googledrive::drive_auth(
