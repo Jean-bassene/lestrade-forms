@@ -21,5 +21,5 @@ start /B "" "R-Portable\bin\Rscript.exe" --vanilla launcher.R > "%TEMP%\lestrade
 :: Attendre que Shiny demarre (10 secondes)
 timeout /t 10 /nobreak > nul
 
-:: Ouvrir Chrome Portable sur l'application
-start "" "ChromePortable\ChromePortable.exe" "http://127.0.0.1:3838"
+:: Ouvrir Chrome Portable en mode app (sans barre d'adresse, comme une vraie app)
+start "" "ChromePortable\ChromePortable.exe" "--app=http://127.0.0.1:3838"
