@@ -278,13 +278,12 @@ server <- function(input, output, session) {
       rlang_interactive  = TRUE
     )
 
-    # Intercepter browseURL pour ouvrir l'auth Google dans Chrome via Shiny
+    # Ouvrir l'URL OAuth dans le navigateur systeme Windows (pas ChromePortable)
+    # => ChromePortable reste sur l'app, Edge/Chrome gere l'auth Google
     old_browser <- getOption("browser")
-    if (!is.null(session)) {
-      options(browser = function(url) {
-        session$sendCustomMessage("openUrl", url)
-      })
-    }
+    options(browser = function(url) {
+      shell(paste0('start "" "', url, '"'), intern = FALSE, wait = FALSE)
+    })
     on.exit(options(browser = old_browser), add = TRUE)
 
     googledrive::drive_auth(

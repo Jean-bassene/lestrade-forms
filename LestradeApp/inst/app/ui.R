@@ -362,13 +362,9 @@ Shiny.addCustomMessageHandler('addBodyClass', function(cls) {
 Shiny.addCustomMessageHandler('removeBodyClass', function(cls) {
   document.body.classList.remove(cls);
 });
-// Ouvrir URL Google OAuth dans une popup separee (garde l'app ouverte)
+// openUrl : utilise R shell() cote serveur — ce handler est conserve pour compatibilite cloud
 Shiny.addCustomMessageHandler('openUrl', function(url) {
-  var w = window.open(url, 'google_auth', 'width=520,height=660,resizable=yes');
-  if (!w) {
-    // Si popup bloquee, ouvrir dans la meme fenetre
-    window.location.href = url;
-  }
+  window.open(url, '_blank');
 });
 // Cacher le nav natif du tabsetPanel principal
 function hideMainNav(){
@@ -396,6 +392,7 @@ ui <- fluidPage(
   useShinyjs(),
   title = "Lestrade Forms · Enquêtes & Analyses",
   tags$head(
+    tags$link(rel = "icon", type = "image/png", href = "favicon.png"),
     tags$style(HTML(APP_CSS)),
     tags$script(HTML(APP_JS))
   ),
