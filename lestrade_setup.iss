@@ -27,7 +27,8 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 DisableProgramGroupPage=yes
-CloseApplications=no
+CloseApplications=yes
+RestartApplications=no
 ShowLanguageDialog=no
 MinVersion=6.1sp1
 
@@ -66,6 +67,20 @@ Filename: "{app}\run_app.vbs"; Description: "Lancer {#AppName} maintenant"; Flag
 Type: filesandordirs; Name: "{app}"
 
 [Code]
+procedure KillProcess(processName: String);
+var
+  ResultCode: Integer;
+begin
+  Exec('taskkill.exe', '/F /IM ' + processName, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  KillProcess('Rscript.exe');
+  KillProcess('chrome.exe');
+  Result := True;
+end;
+
 procedure InitializeWizard();
 begin
   WizardForm.WelcomeLabel2.Caption :=
