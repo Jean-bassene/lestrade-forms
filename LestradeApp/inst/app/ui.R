@@ -409,6 +409,8 @@ ui <- fluidPage(
       tags$button(class="hnav-btn", onclick="$('a[data-value=\"Import\"]').tab('show')",           "Import"),
       tags$button(class="hnav-btn", onclick="$('a[data-value=\"Analyse externe\"]').tab('show')", "Analyse externe")
     ),
+    # Email utilisateur connecté
+    uiOutput("header_user_email"),
     # Badge licence (trial/premium/expiré)
     uiOutput("header_licence_badge")
   ),
@@ -540,7 +542,7 @@ ui <- fluidPage(
           ),
           br(),
           div(style="display:flex;align-items:center;gap:10px;",
-            actionButton("btn_publish_all_drive", "☁ Publier tous sur Drive",
+            actionButton("btn_publish_all_panier", "📦 Publier tous sur le panier",
                          class="btn-outline"),
             uiOutput("publish_all_status_ui")
           )
@@ -643,16 +645,15 @@ ui <- fluidPage(
 
         # ── Bloc sync Drive → Desktop ─────────────────────────────────────────
         div(class="panel-block", style="margin-bottom:16px;",
-          div(class="badge-tag","Synchronisation Google Drive"),
+          div(class="badge-tag","Synchronisation Panier Apps Script"),
           fluidRow(
             column(8,
               p(class="hint-text", style="margin-bottom:8px;",
-                "Importez directement les réponses collectées sur mobile depuis la Google Sheet ",
-                tags$code("Lestrade_Forms_Reponses"), "."),
+                "Importez les réponses collectées sur mobile depuis votre panier Google Apps Script."),
               uiOutput("drive_sync_status_ui")
             ),
             column(4, style="text-align:right;",
-              actionButton("btn_import_from_drive", "☁ Importer depuis Drive",
+              actionButton("btn_import_from_drive", "📦 Importer depuis le panier",
                            class="btn-info", style="margin-top:4px;"),
               br(), br(),
               uiOutput("drive_import_result_ui")

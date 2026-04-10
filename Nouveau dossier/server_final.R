@@ -36,14 +36,14 @@ server <- function(input, output, session) {
     qr_tmp_path      = NULL,
     qr_uid           = NULL,
     qr_quest_id      = NULL,
-    drive_connected  = FALSE,
     drive_proc       = NULL,
     panier_sheet_url = NULL,
     # Licence
-    licence_statut   = "inconnu",  # "premium"|"trial"|"expire"|"inconnu"
+    licence_statut   = "inconnu",  # "premium"|"trial"|"expire"|"offline"|"inconnu"
     licence_email    = "",
     licence_jours    = 0L,
-    licence_message  = ""
+    licence_message  = "",
+    licence_en_grace = FALSE
   )
 
   # ── Vérification licence au démarrage ────────────────────────────────────
@@ -54,97 +54,168 @@ server <- function(input, output, session) {
     rv$licence_email   <- lic$email %||% ""
     rv$licence_jours   <- as.integer(lic$jours_restants %||% 0)
     rv$licence_message <- lic$message %||% ""
+    rv$licence_en_grace <- isTRUE(lic$en_grace)
 
-    # Si pas encore enregistré → modal saisie email
+    # Forcer le modal si pas encore enregistré ou expiré sans grâce
     if (lic$statut == "inconnu") {
-      showModal(modalDialog(
-        title = "Bienvenue dans Lestrade Forms",
-        size  = "s", easyClose = FALSE,
-        div(
-          div(class = "alert alert-info", style = "font-size:13px;",
-              "Saisissez votre adresse email pour démarrer votre trial gratuit de ",
-              tags$strong(paste0(TRIAL_DAYS, " jours")), "."),
-          textInput("licence_email_input", "Adresse email",
-                    placeholder = "vous@exemple.com", width = "100%"),
-          uiOutput("licence_register_result")
-        ),
-        footer = tagList(
-          actionButton("btn_licence_register", "Démarrer le trial",
-                       class = "btn-primary", style = "width:100%;")
-        )
-      ))
-    }
-
-    # Si expiré → modal activation clé
-    if (lic$statut == "expire") {
-      showModal(modalDialog(
-        title = "Trial expiré",
-        size  = "s", easyClose = FALSE,
-        div(
-          div(class = "alert alert-danger", style = "font-size:13px;",
-              "Votre trial de ", tags$strong(paste0(TRIAL_DAYS, " jours")),
-              " est terminé. Activez une licence premium pour continuer."),
-          p(class = "hint-text", "Contactez-nous pour obtenir votre clé de licence."),
-          textInput("licence_cle_input", "Clé de licence",
-                    placeholder = "LEST-XXXX-XXXX-XXXX-XXXX", width = "100%"),
-          uiOutput("licence_activate_result")
-        ),
-        footer = tagList(
-          actionButton("btn_licence_activate", "Activer la licence",
-                       class = "btn-warning", style = "width:100%;")
-        )
-      ))
+      .show_licence_modal(easy_close = FALSE)
+    } else if (lic$statut == "expire" && !isTRUE(lic$en_grace)) {
+      .show_licence_modal(easy_close = FALSE)
     }
   })
 
-  # ── Enregistrement email ─────────────────────────────────────────────────
-  output$licence_register_result <- renderUI({ NULL })
+  # ── Helper : construire et afficher le modal licence ─────────────────────
+  .show_licence_modal <- function(easy_close = TRUE) {
+    statut   <- rv$licence_statut
+    email    <- rv$licence_email
+    jours    <- rv$licence_jours
+    en_grace <- isTRUE(rv$licence_en_grace)
 
-  observeEvent(input$btn_licence_register, {
-    email <- trimws(input$licence_email_input)
-    if (!grepl("^[^@]+@[^@]+\\.[^@]+$", email)) {
-      output$licence_register_result <- renderUI({
-        div(class = "alert alert-danger", style = "font-size:12px; margin-top:8px;",
-            "Email invalide. Vérifiez le format.")
-      })
-      return()
-    }
-    panier_url <- get_panier_url()
-    result     <- enregistrer_licence(email, panier_url)
-    if (isTRUE(result$ok)) {
-      rv$licence_statut  <- result$statut
-      rv$licence_email   <- email
-      rv$licence_jours   <- as.integer(result$jours_restants %||% TRIAL_DAYS)
-      rv$licence_message <- result$message
-      removeModal()
-      showNotification(paste0("✓ ", result$message), type = "message", duration = 6)
+    # Bloc statut
+    statut_block <- if (statut == "premium") {
+      div(class = "alert alert-success mb-2",
+          tags$strong("Licence premium active"),
+          br(), tags$small(style = "color:#155724;", email))
+    } else if (statut == "trial") {
+      div(class = if (jours <= 7) "alert alert-warning mb-2" else "alert alert-info mb-2",
+          tags$strong(paste0("Trial — ", jours, " jour(s) restant(s)")),
+          br(), tags$small(email))
+    } else if (statut == "expire" && en_grace) {
+      div(class = "alert alert-warning mb-2",
+          tags$strong(paste0("Trial expiré — ", jours, " jour(s) de grace restant(s)")),
+          br(), tags$small(email),
+          br(), tags$small(style = "color:#856404;", "Activez votre licence avant la fin de la periode de grace."))
+    } else if (statut == "expire") {
+      div(class = "alert alert-danger mb-2",
+          tags$strong("Trial expire — acces bloque"),
+          br(), tags$small(email),
+          br(), tags$small("Entrez votre cle de licence pour reactiver l'application."))
+    } else if (statut == "offline") {
+      div(class = "alert alert-secondary mb-2",
+          tags$strong("Mode hors-ligne"),
+          br(), tags$small(paste0("Dernier statut connu : ", email)))
     } else {
-      output$licence_register_result <- renderUI({
-        div(class = "alert alert-danger", style = "font-size:12px; margin-top:8px;",
-            result$message)
-      })
+      # inconnu
+      div(class = "alert alert-info mb-2",
+          tags$strong(paste0("Trial gratuit de ", TRIAL_DAYS, " jours")),
+          br(), tags$small("Saisissez votre email pour demarrer."))
     }
-  })
 
-  # ── Activation clé ───────────────────────────────────────────────────────
-  output$licence_activate_result <- renderUI({ NULL })
+    # Section email (toujours visible, editable)
+    email_section <- div(
+      style = "margin-bottom:4px;",
+      div(style = "display:flex; align-items:flex-end; gap:6px;",
+          div(style = "flex:1;",
+              textInput("lic_email_inp", "Adresse email",
+                        value       = email,
+                        placeholder = "vous@exemple.com",
+                        width       = "100%")),
+          if (nzchar(email))
+            actionButton("btn_lic_change_email", "Modifier",
+                         class = "btn-sm btn-outline-secondary mb-3")
+      ),
+      uiOutput("lic_email_result")
+    )
 
-  observeEvent(input$btn_licence_activate, {
-    cle        <- trimws(input$licence_cle_input)
-    panier_url <- get_panier_url()
-    result     <- activer_cle_licence(cle, panier_url)
-    if (isTRUE(result$ok)) {
-      rv$licence_statut  <- "premium"
-      rv$licence_jours   <- 9999L
-      rv$licence_message <- result$message
-      removeModal()
-      showNotification("✓ Licence premium activée !", type = "message", duration = 5)
+    # Section clé (toujours visible sauf pour premium)
+    cle_section <- if (statut != "premium") {
+      div(
+        hr(style = "margin:10px 0;"),
+        p(style = "font-size:12px; color:#666; margin-bottom:4px;",
+          if (statut %in% c("inconnu", "offline"))
+            "Vous avez deja une cle ? Entrez-la directement :"
+          else
+            "Entrez votre cle pour passer en version premium :"),
+        div(style = "display:flex; gap:6px;",
+            div(style = "flex:1;",
+                textInput("lic_cle_inp", NULL,
+                          placeholder = "LEST-XXXX-XXXX-XXXX-XXXX",
+                          width = "100%")),
+            actionButton("btn_lic_activate", "Activer",
+                         class = "btn-warning btn-sm",
+                         style = "flex-shrink:0; margin-top:0;")
+        ),
+        uiOutput("lic_activate_result")
+      )
+    }
+
+    # Tarifs (affiches uniquement si non-premium)
+    tarifs_section <- if (statut != "premium") {
+      div(
+        style = "margin-top:12px; padding:8px 10px; background:#f8f9fa; border-radius:4px;",
+        p(style = "font-size:11px; font-weight:600; color:#444; margin:0 0 6px 0;",
+          "Tarifs Lestrade Forms"),
+        tags$table(
+          style = "width:100%; font-size:11px; color:#555; border-collapse:collapse;",
+          tags$tr(
+            tags$td(style="padding:2px 4px;", "Trial"),
+            tags$td(style="padding:2px 4px; color:#0D6EFD;", "Gratuit"),
+            tags$td(style="padding:2px 4px; color:#888;", "90 jours")
+          ),
+          tags$tr(
+            tags$td(style="padding:2px 4px;", "Premium 1 poste"),
+            tags$td(style="padding:2px 4px; color:#0D6EFD;", "30 000 – 50 000 XOF"),
+            tags$td(style="padding:2px 4px; color:#888;", "1 an")
+          ),
+          tags$tr(
+            tags$td(style="padding:2px 4px;", "ONG (5 postes)"),
+            tags$td(style="padding:2px 4px; color:#0D6EFD;", "100 000 – 150 000 XOF"),
+            tags$td(style="padding:2px 4px; color:#888;", "1 an")
+          )
+        )
+      )
+    }
+
+    # Support
+    support_section <- div(
+      style = "margin-top:12px; padding:7px 10px; background:#f8f9fa; border-radius:4px; font-size:11px; color:#555;",
+      tags$strong("Support : "),
+      tags$a(href = "mailto:bassene.jean@yahoo.com", "bassene.jean@yahoo.com"),
+      " · ",
+      tags$span("+221 768 662 938")
+    )
+
+    # Footer
+    footer_btns <- if (statut == "inconnu") {
+      tagList(
+        actionButton("btn_lic_register", "Demarrer le trial",
+                     class = "btn-primary", style = "width:100%;")
+      )
+    } else if (statut == "premium") {
+      tagList(
+        modalButton("Fermer"),
+        actionButton("btn_licence_reset", "Reinitialiser (test)",
+                     class = "btn-link btn-sm",
+                     style = "color:#ccc; font-size:10px; float:left;")
+      )
+    } else if (statut == "expire" && !en_grace) {
+      # Bloqué : pas de bouton Fermer
+      NULL
     } else {
-      output$licence_activate_result <- renderUI({
-        div(class = "alert alert-danger", style = "font-size:12px; margin-top:8px;",
-            result$message)
-      })
+      tagList(modalButton("Fermer"))
     }
+
+    showModal(modalDialog(
+      title     = "Licence Lestrade Forms",
+      size      = "s",
+      easyClose = easy_close,
+      div(statut_block, email_section, cle_section, tarifs_section, support_section),
+      footer = footer_btns
+    ))
+  }
+
+  # ── Email utilisateur dans le header ─────────────────────────────────────
+  output$header_user_email <- renderUI({
+    email <- rv$licence_email
+    if (!nzchar(email)) return(NULL)
+    div(
+      style = paste0(
+        "font-size:12px; color:#aaa; display:flex; align-items:center;",
+        "margin-right:8px; padding:0 8px;",
+        "border-right:1px solid rgba(255,255,255,0.15);"
+      ),
+      email
+    )
   })
 
   # ── Badge licence dans le header ─────────────────────────────────────────
@@ -152,10 +223,11 @@ server <- function(input, output, session) {
     statut <- rv$licence_statut
     jours  <- rv$licence_jours
     label  <- switch(statut,
-      premium = "✓ Premium",
-      trial   = paste0("⏳ Trial — ", jours, "j"),
-      expire  = "⚠ Expiré",
-      "◌ Licence"
+      premium = "Premium",
+      trial   = paste0("Trial — ", jours, "j"),
+      expire  = "Expire",
+      offline = "Hors-ligne",
+      "Licence"
     )
     cls <- switch(statut, premium = "premium", trial = "trial", expire = "expire", "trial")
     tags$button(
@@ -167,19 +239,20 @@ server <- function(input, output, session) {
 
   # ── Bannière trial / expiration ───────────────────────────────────────────
   output$licence_banner <- renderUI({
-    statut <- rv$licence_statut
-    jours  <- rv$licence_jours
+    statut   <- rv$licence_statut
+    jours    <- rv$licence_jours
+    en_grace <- isTRUE(rv$licence_en_grace)
     if (statut == "premium" || statut == "inconnu") return(NULL)
+    if (statut == "trial" && jours > 7) return(NULL)
 
-    if (statut == "trial" && jours > 7) return(NULL)  # pas de bannière si > 7j restants
-
-    texte <- if (statut == "expire") {
-      "⚠ Trial expiré — activez une licence premium pour continuer à utiliser Lestrade Forms."
+    texte <- if (statut == "expire" && en_grace) {
+      paste0("Trial expire — ", jours, " jour(s) de grace restant(s). Activez votre licence.")
+    } else if (statut == "expire") {
+      "Acces bloque — activez une licence premium pour continuer."
     } else {
-      paste0("⏳ Il vous reste ", jours, " jour(s) de trial. Activez une licence pour continuer sans interruption.")
+      paste0("Il vous reste ", jours, " jour(s) de trial. Activez une licence pour continuer sans interruption.")
     }
 
-    # Pousser le contenu vers le bas
     session$sendCustomMessage("addBodyClass", "has-licence-banner")
 
     div(class = paste("licence-banner", statut),
@@ -192,183 +265,125 @@ server <- function(input, output, session) {
     )
   })
 
-  # ── Modal depuis badge/bannière ───────────────────────────────────────────
+  # ── Ouverture modal depuis badge / bannière ───────────────────────────────
   observeEvent(input$btn_licence_modal, {
-    statut <- rv$licence_statut
-    showModal(modalDialog(
-      title = "Licence Lestrade Forms",
-      size  = "s", easyClose = TRUE,
-      div(
-        if (statut == "premium") {
-          div(class = "alert alert-success",
-              tags$strong("✓ Licence premium active"),
-              br(), tags$small(rv$licence_email))
-        } else if (statut == "trial") {
-          div(
-            div(class = "alert alert-warning",
-                tags$strong(paste0("⏳ Trial — ", rv$licence_jours, " jour(s) restant(s)")),
-                br(), tags$small(rv$licence_email)),
-            hr(),
-            p(class = "hint-text", "Entrez votre clé pour passer en version premium :"),
-            textInput("licence_cle_input2", "Clé de licence",
-                      placeholder = "LEST-XXXX-XXXX-XXXX-XXXX", width = "100%"),
-            uiOutput("licence_activate_result2")
-          )
-        } else {
-          div(
-            div(class = "alert alert-danger", "⚠ Trial expiré"),
-            p(class = "hint-text", "Entrez votre clé pour activer la version premium :"),
-            textInput("licence_cle_input2", "Clé de licence",
-                      placeholder = "LEST-XXXX-XXXX-XXXX-XXXX", width = "100%"),
-            uiOutput("licence_activate_result2")
-          )
-        }
-      ),
-      footer = if (statut != "premium") tagList(
-        modalButton("Fermer"),
-        actionButton("btn_licence_activate2", "Activer", class = "btn-warning")
-      ) else tagList(
-        modalButton("Fermer"),
-        actionButton("btn_licence_reset", "Réinitialiser (test)",
-                     class = "btn-link btn-sm", style = "color:#999;font-size:11px;")
-      )
-    ))
+    .show_licence_modal(easy_close = TRUE)
   })
 
-  observeEvent(input$btn_licence_reset, {
-    tryCatch({
-      if (file.exists(LICENCE_FILE)) file.remove(LICENCE_FILE)
-      rv$licence_statut  <- "inconnu"
-      rv$licence_email   <- ""
-      rv$licence_jours   <- 0
-    }, error = function(e) NULL)
-    removeModal()
-    showNotification("Licence réinitialisée — redémarrez l'app pour retester.", type = "warning", duration = 6)
-  })
+  # ── Outputs résultats (initialisés vides) ─────────────────────────────────
+  output$lic_email_result   <- renderUI({ NULL })
+  output$lic_activate_result <- renderUI({ NULL })
 
-  output$licence_activate_result2 <- renderUI({ NULL })
-
-  observeEvent(input$btn_licence_activate2, {
-    cle        <- trimws(input$licence_cle_input2 %||% "")
+  # ── Bouton "Demarrer le trial" (inconnu) ─────────────────────────────────
+  observeEvent(input$btn_lic_register, {
+    email <- tolower(trimws(input$lic_email_inp %||% ""))
+    if (!grepl("^[^@]+@[^@]+\\.[^@]+$", email)) {
+      output$lic_email_result <- renderUI({
+        div(class = "alert alert-danger", style = "font-size:12px; margin-top:6px;",
+            "Email invalide. Verifiez le format (ex: vous@exemple.com).")
+      })
+      return()
+    }
     panier_url <- get_panier_url()
-    result     <- activer_cle_licence(cle, panier_url)
+    result     <- enregistrer_licence(email, panier_url)
     if (isTRUE(result$ok)) {
-      rv$licence_statut  <- "premium"
-      rv$licence_jours   <- 9999L
+      rv$licence_statut   <- result$statut
+      rv$licence_email    <- email
+      rv$licence_jours    <- as.integer(result$jours_restants %||% TRIAL_DAYS)
+      rv$licence_message  <- result$message
+      rv$licence_en_grace <- FALSE
       removeModal()
-      showNotification("✓ Licence premium activée !", type = "message", duration = 5)
+      showNotification(paste0(result$message), type = "message", duration = 7)
     } else {
-      output$licence_activate_result2 <- renderUI({
-        div(class = "alert alert-danger", style = "font-size:12px; margin-top:8px;",
+      output$lic_email_result <- renderUI({
+        div(class = "alert alert-danger", style = "font-size:12px; margin-top:6px;",
             result$message)
       })
     }
   })
 
-  # ── Connexion Google Drive Desktop ─────────────────────────────────────────
-  DESKTOP_DRIVE_CACHE <- file.path(tools::R_user_dir("LestradeApp", "data"), ".secrets_desktop")
-  dir.create(DESKTOP_DRIVE_CACHE, recursive = TRUE, showWarnings = FALSE)
+  # ── Bouton "Modifier" l'email ─────────────────────────────────────────────
+  observeEvent(input$btn_lic_change_email, {
+    nouvel_email <- tolower(trimws(input$lic_email_inp %||% ""))
+    if (!grepl("^[^@]+@[^@]+\\.[^@]+$", nouvel_email)) {
+      output$lic_email_result <- renderUI({
+        div(class = "alert alert-danger", style = "font-size:12px; margin-top:6px;",
+            "Email invalide.")
+      })
+      return()
+    }
+    if (nouvel_email == rv$licence_email) {
+      output$lic_email_result <- renderUI({
+        div(class = "alert alert-info", style = "font-size:12px; margin-top:6px;",
+            "C'est deja votre email actuel.")
+      })
+      return()
+    }
+    panier_url <- get_panier_url()
+    result     <- changer_email(nouvel_email, panier_url)
+    if (isTRUE(result$ok)) {
+      rv$licence_email    <- nouvel_email
+      rv$licence_statut   <- result$statut %||% rv$licence_statut
+      rv$licence_jours    <- as.integer(result$jours_restants %||% rv$licence_jours)
+      rv$licence_en_grace <- FALSE
+      removeModal()
+      showNotification(result$message, type = "message", duration = 6)
+      .show_licence_modal(easy_close = TRUE)
+    } else {
+      output$lic_email_result <- renderUI({
+        div(class = "alert alert-danger", style = "font-size:12px; margin-top:6px;",
+            result$message)
+      })
+    }
+  })
 
-  # Charge le token Drive depuis le cache (genere par setup_drive.R)
-  desktop_drive_connect <- function() {
-    if (!requireNamespace("googledrive", quietly = TRUE))
-      stop("Package 'googledrive' requis.")
-    if (!desktop_drive_is_ok())
-      stop("Token Google Drive absent. Lancez d'abord 'Setup Google Drive.bat' (ou setup_drive.R dans RStudio).")
-    options(
-      gargle_oauth_cache = DESKTOP_DRIVE_CACHE,
-      gargle_oob_default = FALSE
-    )
-    # Charge silencieusement le token cache — pas de navigateur
-    googledrive::drive_auth(
-      cache  = DESKTOP_DRIVE_CACHE,
-      email  = TRUE,   # utilise n'importe quel token en cache
-      scopes = c("https://www.googleapis.com/auth/drive",
-                 "https://www.googleapis.com/auth/spreadsheets")
-    )
-    TRUE
-  }
+  # ── Bouton "Activer" la clé ───────────────────────────────────────────────
+  observeEvent(input$btn_lic_activate, {
+    cle        <- trimws(input$lic_cle_inp %||% "")
+    email      <- rv$licence_email
+    panier_url <- get_panier_url()
 
-  desktop_drive_is_ok <- function() {
-    # Vérifier uniquement la présence du fichier token — pas d'appel googledrive
-    # (évite le prompt interactif dans la console RStudio)
+    if (!nzchar(cle)) {
+      output$lic_activate_result <- renderUI({
+        div(class = "alert alert-warning", style = "font-size:12px; margin-top:6px;",
+            "Saisissez votre cle de licence (format LEST-XXXX-XXXX-XXXX-XXXX).")
+      })
+      return()
+    }
+
+    # Toujours activation par clé seule : le serveur récupère l'email associé
+    # Couvre tous les cas : email connu, inconnu, ou différent de la clé
+    result <- verifier_par_cle(cle, panier_url)
+
+    if (isTRUE(result$ok)) {
+      rv$licence_statut   <- "premium"
+      rv$licence_jours    <- 9999L
+      rv$licence_en_grace <- FALSE
+      if (!is.null(result$email) && nzchar(result$email))
+        rv$licence_email <- result$email
+      removeModal()
+      showNotification("Licence premium activee !", type = "message", duration = 6)
+    } else {
+      output$lic_activate_result <- renderUI({
+        div(class = "alert alert-danger", style = "font-size:12px; margin-top:6px;",
+            result$message)
+      })
+    }
+  })
+
+  # ── Reinitialisation (test/dev) ───────────────────────────────────────────
+  observeEvent(input$btn_licence_reset, {
     tryCatch({
-      files <- list.files(DESKTOP_DRIVE_CACHE, pattern = "\\.rds$|\\.json$|\\.cache$", full.names = TRUE)
-      if (length(files) == 0) files <- list.files(DESKTOP_DRIVE_CACHE, full.names = TRUE)
-      length(files) > 0
-    }, error = function(e) FALSE)
-  }
-
-  # Vérifier au démarrage si un token existe déjà
-  observe({
-    rv$drive_connected <- tryCatch(desktop_drive_is_ok(), error = function(e) FALSE)
-  })
-
-  # ── Badge Google Drive dans l'en-tête ──────────────────────────────────────
-  output$header_drive_badge <- renderUI({
-    if (rv$drive_connected) {
-      mail <- tryCatch({
-        u <- googledrive::drive_user()
-        u$emailAddress %||% u$displayName %||% "Connecté"
-      }, error = function(e) "Connecté")
-      tags$button(class="drive-badge connected",
-        onclick="Shiny.setInputValue('btn_header_drive', Math.random(), {priority:'event'})",
-        div(class="drive-dot on"), mail)
-    } else {
-      tags$button(class="drive-badge disconnected",
-        onclick="Shiny.setInputValue('btn_header_drive', Math.random(), {priority:'event'})",
-        div(class="drive-dot off"), "Connecter Google Drive")
-    }
-  })
-
-  observeEvent(input$btn_header_drive, {
-    if (!rv$drive_connected) {
-      if (!desktop_drive_is_ok()) {
-        showModal(modalDialog(
-          title = "Configuration Google Drive requise",
-          size  = "s", easyClose = TRUE,
-          p("Pour connecter Google Drive, vous devez d'abord générer un token d'accès."),
-          p(tags$b("1."), " Fermez Lestrade Forms"),
-          p(tags$b("2."), " Double-cliquez sur ", tags$code("Setup Google Drive.bat"),
-            " dans le dossier d'installation"),
-          p(tags$b("3."), " Connectez-vous à votre compte Google dans le navigateur"),
-          p(tags$b("4."), " Relancez Lestrade Forms — Drive sera connecté automatiquement"),
-          footer = modalButton("Compris")
-        ))
-      } else {
-        ok <- tryCatch({ desktop_drive_connect(); rv$drive_connected <- desktop_drive_is_ok(); TRUE },
-                       error = function(e) { showNotification(e$message, type = "error"); FALSE })
-        if (ok) showNotification("✓ Google Drive connecté !", type = "message")
-      }
-    } else {
-      showModal(modalDialog(
-        title = "Google Drive",
-        tryCatch({
-          u <- googledrive::drive_user()
-          tagList(p(tags$b("Email :"), u$emailAddress %||% ""), p(style="color:grey;font-size:12px;","Connecté"))
-        }, error = function(e) p("Connecté")),
-        footer = tagList(modalButton("Fermer"),
-          actionButton("btn_drive_disconnect","Se déconnecter", class="btn-outline")),
-        easyClose = TRUE
-      ))
-    }
-  })
-
-  observeEvent(input$btn_drive_disconnect, {
-    tryCatch({ file.remove(list.files(DESKTOP_DRIVE_CACHE, full.names=TRUE)); rv$drive_connected <- FALSE }, error=function(e) NULL)
+      if (file.exists(LICENCE_FILE)) file.remove(LICENCE_FILE)
+      rv$licence_statut   <- "inconnu"
+      rv$licence_email    <- ""
+      rv$licence_jours    <- 0L
+      rv$licence_en_grace <- FALSE
+    }, error = function(e) NULL)
     removeModal()
-    showNotification("Déconnecté de Google Drive.", type="warning")
+    showNotification("Licence reinitialisee — redemarrez l'app pour retester.", type = "warning", duration = 6)
   })
 
-  # Bouton connecter Drive (depuis le modal QR)
-  observeEvent(input$btn_desktop_connect_drive, {
-    ok <- tryCatch({ desktop_drive_connect(); rv$drive_connected <- desktop_drive_is_ok(); TRUE },
-                   error = function(e) { showNotification(e$message, type="error", duration=8); FALSE })
-    if (ok) {
-      showNotification("✓ Google Drive connecté !", type="message")
-      shinyjs::runjs("Shiny.setInputValue('btn_share_qr', Math.random(), {priority:'event'})")
-    }
-  })
 
   # ── helpers locaux ──────────────────────────────────────────────────────────
   parse_options <- function(txt) {
@@ -533,9 +548,10 @@ server <- function(input, output, session) {
 
   output$publish_all_status_ui <- renderUI({ NULL })
 
-  observeEvent(input$btn_publish_all_drive, {
-    if (!rv$drive_connected) {
-      showNotification("Connectez d'abord Google Drive (bouton QR > Connecter Drive).",
+  observeEvent(input$btn_publish_all_panier, {
+    panier_url <- get_panier_url()
+    if (is.null(panier_url)) {
+      showNotification("Panier non configuré — configurez l'URL Apps Script dans l'onglet Import.",
                        type="warning", duration=5)
       return()
     }
@@ -544,13 +560,13 @@ server <- function(input, output, session) {
       showNotification("Aucun questionnaire à publier.", type="warning"); return()
     }
     showNotification(
-      sprintf("Publication de %d questionnaire(s) sur Drive...", nrow(quests)),
+      sprintf("Publication de %d questionnaire(s) sur le panier...", nrow(quests)),
       type="message", duration=4)
 
     n_ok <- 0L; n_err <- 0L
     for (i in seq_len(nrow(quests))) {
       tryCatch({
-        upload_quest_to_drive(quests$id[i])
+        upload_quest_to_panier(quests$id[i], panier_url)
         n_ok <- n_ok + 1L
       }, error=function(e) { n_err <<- n_err + 1L })
     }
@@ -679,8 +695,6 @@ server <- function(input, output, session) {
     rv$qr_uid      <- export$uid
     rv$qr_quest_id <- qid
 
-    drive_ok <- rv$drive_connected
-
     showModal(modalDialog(
       title = tags$span("📱 Partager — ", tags$strong(quest$nom)),
       size  = "m", easyClose=TRUE,
@@ -688,7 +702,7 @@ server <- function(input, output, session) {
       # Mode actif + infos questionnaire
       div(class="status-banner",
         if (panier_ok)
-          tags$span("📦 Mode panier — fonctionne sur tout réseau (WiFi, 4G, WhatsApp…)")
+          tags$span("📦 Mode panier — fonctionne sur tout réseau (WiFi, 4G, partout)")
         else
           tags$span(sprintf("📶 Mode WiFi local — IP : %s:8765", .local_ip))
       ),
@@ -711,57 +725,27 @@ server <- function(input, output, session) {
       # Instructions
       div(style="background:#F5F7FA;border-radius:8px;padding:14px 16px;font-size:13px;",
         tags$strong("Comment ça fonctionne :"), tags$br(), br(),
-        tags$ol(style="margin:0;padding-left:18px;line-height:2;",
-          tags$li(HTML("<b>Étape 1 (Desktop)</b> — Connectez Drive ci-dessous puis cliquez <em>Publier sur Drive</em>.")),
-          tags$li(HTML("<b>Étape 2 (Mobile)</b> — Connectez le même compte Google dans Paramètres.")),
-          tags$li(HTML("<b>Étape 3 (Mobile)</b> — Scannez ce QR code depuis l'onglet Scanner.")),
-          tags$li(HTML("<b>Résultat</b> — Le questionnaire s'installe automatiquement."))
-        )
+        if (panier_ok) {
+          tags$ol(style="margin:0;padding-left:18px;line-height:2;",
+            tags$li(HTML("<b>Étape 1 (Desktop)</b> — Cliquez <em>Publier sur le panier</em> ci-dessous.")),
+            tags$li(HTML("<b>Étape 2 (Mobile)</b> — Scannez ce QR code depuis l'onglet Scanner.")),
+            tags$li(HTML("<b>Résultat</b> — Le questionnaire s'installe automatiquement via internet."))
+          )
+        } else {
+          tags$ol(style="margin:0;padding-left:18px;line-height:2;",
+            tags$li(HTML("<b>Étape 1 (Mobile)</b> — Connectez-vous au même réseau WiFi.")),
+            tags$li(HTML("<b>Étape 2 (Mobile)</b> — Scannez ce QR code depuis l'onglet Scanner.")),
+            tags$li(HTML(sprintf("<b>Résultat</b> — Connexion automatique à %s:8765.", .local_ip)))
+          )
+        }
       ),
       br(),
 
-      # Statut Drive + bouton connexion si nécessaire
-      if (!drive_ok)
-        div(
-          div(class="status-banner warning",
-            "⚠ Google Drive non connecté — requis pour publier le questionnaire."),
-          br(),
-          actionButton("btn_desktop_connect_drive", "🔗 Connecter Google Drive",
-                       class="btn-primary", style="width:100%;")
-        )
-      else
-        div(class="status-banner",
-          "☁ Google Drive connecté — prêt à publier."),
-
       footer = tagList(
         modalButton("Fermer"),
-        downloadButton("download_qr_png", "⬇ QR Image", class="btn-outline"),
-        if (drive_ok)
-          actionButton("btn_publish_drive", "☁ Publier sur Drive", class="btn-primary")
+        downloadButton("download_qr_png", "⬇ QR Image", class="btn-outline")
       )
     ))
-  })
-
-  # Upload Drive depuis le modal
-  observeEvent(input$btn_publish_drive, {
-    qid <- rv$qr_quest_id; req(!is.null(qid))
-    if (!rv$drive_connected) {
-      showNotification("Connectez d'abord Google Drive.", type="warning"); return()
-    }
-    showNotification("⏳ Publication en cours...", type="message", duration=2)
-    result <- tryCatch(
-      upload_quest_to_drive(qid),
-      error=function(e) {
-        showNotification(paste("Erreur Drive:", e$message), type="error", duration=8)
-        NULL
-      }
-    )
-    if (!is.null(result)) {
-      rv$drive_connected <- TRUE
-      showNotification(
-        "✓ Questionnaire publié ! Les mobiles peuvent maintenant le télécharger.",
-        type="message", duration=6)
-    }
   })
 
   output$download_qr_png <- downloadHandler(
@@ -1001,16 +985,17 @@ server <- function(input, output, session) {
     if (uid == "") {
       showNotification("Entrez l'identifiant du QR code.", type="warning"); return()
     }
-    if (!rv$drive_connected) {
-      showNotification("Connectez d'abord Google Drive (onglet Construction > QR).",
+    panier_url <- get_panier_url()
+    if (is.null(panier_url)) {
+      showNotification("Panier non configuré — configurez l'URL Apps Script dans l'onglet Import.",
                        type="warning", duration=5); return()
     }
 
-    # ── Étape 1 : questionnaire ──────────────────────────────────────────────
+    # ── Étape 1 : questionnaire depuis le panier ─────────────────────────────
     showNotification("⏳ Étape 1/2 — Téléchargement du questionnaire...",
                      type="message", duration=4)
     quest_result <- tryCatch({
-      json_str <- download_quest_from_drive(uid)
+      json_str <- download_quest_from_panier(uid, panier_url)
       new_id   <- import_quest_from_json(json_str)
       q        <- get_questionnaire_by_id(new_id)
       rv$refresh_quests <- rv$refresh_quests + 1L
@@ -1028,41 +1013,13 @@ server <- function(input, output, session) {
       return()
     }
 
-    # ── Étape 2 : réponses depuis la Sheet ───────────────────────────────────
-    showNotification("⏳ Étape 2/2 — Récupération des réponses...",
+    # ── Étape 2 : réponses depuis le panier ─────────────────────────────────
+    showNotification("⏳ Étape 2/2 — Récupération des réponses depuis le panier...",
                      type="message", duration=4)
     rep_result <- tryCatch({
-      found <- googlesheets4::gs4_find("Lestrade_Forms_Reponses")
-      if (is.null(found) || nrow(found) == 0)
-        return(list(ok=TRUE, n=0, msg="Sheet Drive introuvable — réponses non importées."))
-
-      sheet_id <- as.character(found$id[1])
-      df <- googlesheets4::read_sheet(sheet_id, sheet="reponses")
-      if (nrow(df) == 0) return(list(ok=TRUE, n=0, msg="Sheet vide."))
-
-      # Filtrer par nom du questionnaire importé
-      df_filt <- df[trimws(df$questionnaire_nom) == trimws(quest_result$nom), ]
-      if (nrow(df_filt) == 0)
-        return(list(ok=TRUE, n=0, msg=sprintf("Aucune réponse pour '%s' dans la Sheet.", quest_result$nom)))
-
-      # Importer dans questionnaires.db (anti-doublon par horodateur normalisé)
-      norm_horo <- function(h) {
-        # Normalise "2024-01-15T10:30:45" et "2024-01-15 10:30:45" → même chaîne
-        trimws(gsub("T", " ", as.character(h)))
-      }
-      existing <- get_reponses_by_questionnaire(quest_result$id)
-      existing_horos <- norm_horo(existing$horodateur)
-      n_import <- 0L
-      for (i in seq_len(nrow(df_filt))) {
-        row <- df_filt[i, ]
-        h <- norm_horo(row$horodateur)
-        if (h %in% existing_horos) next
-        save_reponse(quest_result$id, as.character(row$donnees_json))
-        existing_horos <- c(existing_horos, h)  # mise à jour locale
-        n_import <- n_import + 1L
-      }
+      res <- panier_import(quest_id = quest_result$id, url = panier_url, clear_after = TRUE)
       rv$refresh_reponses <- rv$refresh_reponses + 1L
-      list(ok=TRUE, n=n_import, total=nrow(df_filt), msg=NULL)
+      list(ok=TRUE, n=res$imported %||% 0L, total=(res$imported %||% 0L) + (res$skipped %||% 0L), msg=NULL)
     }, error=function(e) list(ok=FALSE, msg=e$message))
 
     # ── Résumé final ─────────────────────────────────────────────────────────
@@ -1108,74 +1065,32 @@ server <- function(input, output, session) {
 
   output$panier_import_result_ui <- renderUI({ NULL })
 
-  # Création automatique du panier (Sheet + Apps Script)
+  # Guide de configuration du panier (sans Drive — 100% manuel)
   observeEvent(input$btn_panier_create, {
-    if (!rv$drive_connected) {
-      showNotification("Connectez-vous d'abord à Google Drive (badge en haut).", type = "warning")
-      return()
-    }
-    showModal(modalDialog(
-      title = "✨ Configurer le panier",
-      size  = "s",
-      div(
-        p("Cette opération va :"),
-        tags$ol(
-          tags$li("Créer automatiquement le Google Sheet ", tags$strong("Lestrade_Panier")),
-          tags$li("Vous guider pour déployer le Apps Script (2 min, une seule fois)")
-        ),
-        p(class = "hint-text",
-          "Le déploiement Apps Script nécessite une action manuelle — ",
-          "Google bloque son automatisation pour les apps non vérifiées.")
-      ),
-      footer = tagList(
-        modalButton("Annuler"),
-        actionButton("btn_panier_create_confirm", "✨ Créer le Sheet", class = "btn-success")
-      )
-    ))
-  })
-
-  observeEvent(input$btn_panier_create_confirm, {
-    removeModal()
-    withProgress(message = "Création du Google Sheet...", value = 0.5, {
-      result <- tryCatch(
-        create_panier_automatique(),
-        error = function(e) list(ok = FALSE, error = e$message)
-      )
-    })
-
-    if (!isTRUE(result$ok)) {
-      showNotification(paste("Erreur :", result$error), type = "error", duration = 10)
-      return()
-    }
-
-    # Sauvegarder l'URL du Sheet pour le bouton "Ouvrir"
-    rv$panier_sheet_url <- result$sheet_url
-
     gs_code <- tryCatch(
       paste(readLines(
         file.path(dirname(DB_PATH), "lestrade_panier.gs"), warn = FALSE
       ), collapse = "\n"),
-      error = function(e) "# Erreur : fichier lestrade_panier.gs introuvable"
+      error = function(e) "# Fichier lestrade_panier.gs introuvable dans le dossier app"
     )
 
     showModal(modalDialog(
-      title = "✅ Sheet créé — 1 étape manuelle",
-      size  = "l", easyClose = FALSE,
+      title = "Configurer le panier Apps Script",
+      size  = "l", easyClose = TRUE,
       div(
-        div(class = "alert alert-success",
-            "✓ Google Sheet ", tags$strong("Lestrade_Panier"), " créé dans votre Drive."),
-        p(tags$strong("Maintenant déployez le Apps Script (une seule fois) :")),
+        div(class = "alert alert-info", style = "font-size:13px;",
+            "Configuration en 3 etapes — ", tags$strong("une seule fois"), " · Duree : ~5 minutes"),
+        p(tags$strong("Etapes de configuration :")),
         tags$ol(
           tags$li(
-            "Ouvrez le Sheet dans votre navigateur :",
-            br(),
-            actionButton("btn_open_sheet_browser", "🌐 Ouvrir le Sheet",
-                         class = "btn-primary btn-sm", style = "margin:4px 0;"),
-            br(),
-            tags$small("ou copiez cette URL : "),
-            tags$code(style = "font-size:11px; word-break:break-all;", result$sheet_url)
+            "Allez sur Google Sheets →",
+            actionButton("btn_open_sheets", "🌐 Ouvrir Google Sheets",
+                         class = "btn-sm btn-outline-secondary",
+                         style = "margin:0 4px;"),
+            "→ ", tags$strong("Nouveau"), " → créez un Sheet vide →",
+            " renommez-le ", tags$strong("Lestrade_Panier")
           ),
-          tags$li("Extensions → ", tags$strong("Apps Script")),
+          tags$li("Dans le Sheet → menu ", tags$strong("Extensions → Apps Script")),
           tags$li(
             "Effacez le code existant, puis cliquez ", tags$strong("Copier le code"), " :",
             br(),
@@ -1214,20 +1129,29 @@ server <- function(input, output, session) {
             "→ ", tags$strong("Déployer"), " → Autorisez → ", tags$strong("copiez l'URL /exec")
           ),
           tags$li(
-            "Revenez ici → ", tags$strong("⚙ URL manuelle"), " → collez l'URL → Enregistrer"
+            "Revenez ici et cliquez ", tags$strong("⚙ Configurer l'URL"), " pour coller l'URL /exec"
           )
         )
       ),
-      footer = modalButton("J'ai compris")
+      footer = tagList(
+        modalButton("Fermer"),
+        actionButton("btn_panier_config_from_guide", "⚙ Configurer l'URL",
+                     class = "btn-primary")
+      )
     ))
   })
 
-  # Ouvrir le Sheet dans le navigateur système
-  observeEvent(input$btn_open_sheet_browser, {
-    url <- rv$panier_sheet_url
-    if (!is.null(url) && nzchar(url)) {
-      browseURL(url)
-    }
+  # Ouvrir Google Sheets dans le navigateur système
+  observeEvent(input$btn_open_sheets, {
+    browseURL("https://sheets.google.com")
+  })
+
+  # Bouton "Configurer l'URL" depuis le guide
+  observeEvent(input$btn_panier_config_from_guide, {
+    removeModal()
+    shinyjs::delay(100, shinyjs::runjs(
+      "Shiny.setInputValue('btn_panier_config', Math.random(), {priority:'event'})"
+    ))
   })
 
   # Configuration du panier
@@ -1317,73 +1241,43 @@ server <- function(input, output, session) {
     }
   })
 
-  # ── IMPORT DEPUIS DRIVE ────────────────────────────────────────────────────
+  # ── STATUT PANIER (remplace Drive sync) ──────────────────────────────────
   output$drive_sync_status_ui <- renderUI({
-    if (rv$drive_connected)
+    url <- get_panier_url()
+    if (!is.null(url) && nzchar(url))
       div(class="badge-tag", style="background:#D1F0EC;color:#0A8075;border-color:#0A8075;",
-          "☁ Drive connecté")
+          "📦 Panier configuré")
     else
       div(class="badge-tag", style="background:#FFF8E7;color:#7A5000;border-color:#E8A020;",
-          "⚠ Drive non connecté — connectez via l'onglet Construction > QR Code")
+          "⚠ Panier non configuré — onglet Import > Configurer")
   })
 
   output$drive_import_result_ui <- renderUI({ NULL })
 
+  # Réponses "Importer" — redirige vers import panier (btn_import_from_drive conservé pour compatibilité UI)
   observeEvent(input$btn_import_from_drive, {
-    if (!rv$drive_connected) {
-      showNotification("Connectez d'abord Google Drive (onglet Construction > bouton QR).",
-                       type="warning", duration=5)
+    panier_url <- get_panier_url()
+    if (is.null(panier_url)) {
+      showNotification("Panier non configuré. Configurez l'URL Apps Script dans l'onglet Import.",
+                       type="warning", duration=6)
       return()
     }
-    showNotification("Recherche de la Google Sheet...", type="message", duration=3)
-    result <- tryCatch({
-      # Chercher la sheet Lestrade_Forms_Reponses
-      found <- googlesheets4::gs4_find("Lestrade_Forms_Reponses")
-      if (is.null(found) || nrow(found) == 0)
-        stop("Sheet 'Lestrade_Forms_Reponses' introuvable sur Drive.")
-
-      sheet_id <- as.character(found$id[1])
-      df <- googlesheets4::read_sheet(sheet_id, sheet = "reponses")
-      if (nrow(df) == 0) stop("Aucune réponse dans la Sheet Drive.")
-
-      # Importer chaque ligne comme réponse dans questionnaires.db
-      norm_horo <- function(h) trimws(gsub("T", " ", as.character(h)))
-      # Pré-charger les horodateurs existants par questionnaire (évite N requêtes)
-      existing_horos_cache <- list()
-      n_import <- 0L
-      for (i in seq_len(nrow(df))) {
-        row <- df[i, ]
-        qid <- as.integer(row$questionnaire_id)
-        if (is.na(qid) || is.null(row$donnees_json)) next
-        q <- get_questionnaire_by_id(qid)
-        if (is.null(q)) next
-        # Cache par qid
-        qkey <- as.character(qid)
-        if (is.null(existing_horos_cache[[qkey]])) {
-          ex <- get_reponses_by_questionnaire(qid)
-          existing_horos_cache[[qkey]] <- norm_horo(ex$horodateur)
-        }
-        h <- norm_horo(row$horodateur)
-        if (h %in% existing_horos_cache[[qkey]]) next
-        save_reponse(qid, as.character(row$donnees_json))
-        existing_horos_cache[[qkey]] <- c(existing_horos_cache[[qkey]], h)
-        n_import <- n_import + 1L
-      }
+    showNotification("⏳ Import des réponses depuis le panier...", type="message", duration=3)
+    result <- tryCatch(
+      panier_import(url = panier_url, clear_after = TRUE),
+      error = function(e) list(ok = FALSE, msg = e$message)
+    )
+    if (isTRUE(result$ok) || !is.null(result$imported)) {
+      n <- result$imported %||% 0L
       rv$refresh_reponses <- rv$refresh_reponses + 1L
-      list(ok = TRUE, n = n_import, total = nrow(df))
-    }, error = function(e) list(ok = FALSE, msg = e$message))
-
-    if (isTRUE(result$ok)) {
-      showNotification(
-        sprintf("✓ %d nouvelle(s) réponse(s) importée(s) depuis Drive (%d au total dans la Sheet).",
-                result$n, result$total),
-        type = "message", duration = 6)
+      showNotification(sprintf("✓ %d réponse(s) importée(s) depuis le panier.", n),
+                       type="message", duration=6)
       output$drive_import_result_ui <- renderUI({
         div(style="font-size:12px;color:#0A8075;margin-top:4px;",
-            sprintf("✓ %d importée(s)", result$n))
+            sprintf("✓ %d importée(s)", n))
       })
     } else {
-      showNotification(paste("Erreur Drive :", result$msg), type="error", duration=8)
+      showNotification(paste("Erreur panier :", result$msg), type="error", duration=8)
       output$drive_import_result_ui <- renderUI({
         div(style="font-size:12px;color:#C0392B;margin-top:4px;", "✗ Erreur")
       })

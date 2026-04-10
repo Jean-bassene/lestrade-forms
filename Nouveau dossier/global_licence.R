@@ -11,6 +11,7 @@ library(httr)
 LICENCE_DIR  <- file.path(Sys.getenv("USERPROFILE", unset = path.expand("~")), ".lestrade")
 LICENCE_FILE <- file.path(LICENCE_DIR, "licence.json")
 TRIAL_DAYS   <- 90L
+GRACE_DAYS   <- 7L   # jours de grâce après expiry avant blocage
 
 # ── Lecture / écriture locale ─────────────────────────────────────────────────
 
@@ -118,7 +119,8 @@ post_apps_script <- function(url, body_list) {
 # Retourne une liste avec :
 #   $statut        : "premium" | "trial" | "expire" | "offline" | "inconnu"
 #   $email         : adresse email
-#   $jours_restants: nombre de jours restants (trial)
+#   $jours_restants: jours restants (trial) ou de grâce (expire)
+#   $en_grace      : TRUE si dans la période de grâce post-expiry
 #   $message       : message lisible
 verifier_licence <- function(panier_url = NULL) {
 
@@ -126,25 +128,39 @@ verifier_licence <- function(panier_url = NULL) {
 
   # Pas de licence locale → besoin d'enregistrement
   if (is.null(local) || is.null(local$email) || local$email == "") {
-    return(list(statut = "inconnu", email = "", jours_restants = 0,
+    return(list(statut = "inconnu", email = "", jours_restants = 0L, en_grace = FALSE,
                 message = "Aucune licence — veuillez saisir votre email"))
   }
 
   email <- local$email
 
+  # ── Helper : calcul grâce depuis date_inscription ─
+  calc_grace <- function(date_insc) {
+    debut <- tryCatch(as.POSIXct(date_insc, tz = "UTC"), error = function(e) NULL)
+    if (is.null(debut)) return(list(en_grace = FALSE, grace_restants = 0L))
+    diff_j         <- as.integer(difftime(Sys.time(), debut, units = "days"))
+    grace_restants <- (TRIAL_DAYS + GRACE_DAYS) - diff_j
+    list(en_grace = grace_restants > 0L, grace_restants = max(0L, grace_restants))
+  }
+
   # Vérification serveur si panier configuré
   if (!is.null(panier_url) && nzchar(panier_url)) {
     server <- licence_check_server(email, panier_url)
     if (!is.null(server) && !is.null(server$statut)) {
-      # Mettre à jour le cache local
       local$statut         <- server$statut
       local$jours_restants <- as.integer(server$jours_restants %||% 0)
-      local$derniere_verif <- Sys.time() %>% format("%Y-%m-%dT%H:%M:%S")
+      local$derniere_verif <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
       write_licence_local(local)
+
+      grace <- if (server$statut == "expire" && !is.null(local$date_inscription))
+        calc_grace(local$date_inscription) else list(en_grace = FALSE, grace_restants = 0L)
+
+      jours_out <- if (server$statut == "expire") grace$grace_restants else as.integer(server$jours_restants %||% 0)
       return(list(
         statut         = server$statut,
         email          = email,
-        jours_restants = as.integer(server$jours_restants %||% 0),
+        jours_restants = jours_out,
+        en_grace       = grace$en_grace,
         message        = server$message %||% ""
       ))
     }
@@ -158,20 +174,24 @@ verifier_licence <- function(panier_url = NULL) {
       restants <- TRIAL_DAYS - diff_j
       statut   <- if (!is.null(local$statut) && local$statut == "premium") "premium" else
                   if (restants <= 0) "expire" else "trial"
+      grace    <- if (statut == "expire") calc_grace(local$date_inscription) else list(en_grace = FALSE, grace_restants = 0L)
+      jours_out <- if (statut == "expire") grace$grace_restants else max(0L, restants)
       return(list(
         statut         = statut,
         email          = email,
-        jours_restants = max(0L, restants),
+        jours_restants = jours_out,
+        en_grace       = grace$en_grace,
         message        = switch(statut,
           premium = "Licence premium active (mode hors-ligne)",
-          expire  = "Trial expiré — activez une licence",
+          expire  = if (grace$en_grace) paste0("Trial expiré — ", grace$grace_restants, " jour(s) de grâce restant(s)")
+                    else "Trial expiré — activez une licence",
           trial   = paste0("Trial actif — ", restants, " jour(s) restant(s) (hors-ligne)")
         )
       ))
     }
   }
 
-  list(statut = "offline", email = email, jours_restants = 0,
+  list(statut = "offline", email = email, jours_restants = 0L, en_grace = FALSE,
        message = "Impossible de vérifier la licence (hors-ligne)")
 }
 
@@ -205,8 +225,12 @@ enregistrer_licence <- function(email, panier_url = NULL) {
     derniere_verif   = now
   ))
 
-  list(ok = TRUE, statut = statut, jours_restants = jours,
-       message = paste0("Bienvenue ! Trial de ", jours, " jours démarré."))
+  msg <- if (statut == "premium") {
+    "Licence premium restaurée — bienvenue !"
+  } else {
+    paste0("Bienvenue ! Trial de ", jours, " jours démarré.")
+  }
+  list(ok = TRUE, statut = statut, jours_restants = jours, message = msg)
 }
 
 # ── Activation clé (utilisateur) ─────────────────────────────────────────────
@@ -232,6 +256,98 @@ activer_cle_licence <- function(cle, panier_url = NULL) {
   }
 
   list(ok = FALSE, message = resp$message %||% "Erreur lors de l'activation")
+}
+
+# ── Vérification + activation par clé seule (sans email) ─────────────────────
+
+verifier_par_cle <- function(cle, panier_url) {
+  cle <- trimws(cle)
+  if (!nzchar(cle)) return(list(ok = FALSE, message = "Clé vide."))
+  if (is.null(panier_url) || !nzchar(panier_url)) {
+    return(list(ok = FALSE, message = "Connexion internet requise pour activer par clé."))
+  }
+
+  tryCatch({
+    # 1. Vérifier que la clé existe et récupérer l'email associé
+    url  <- paste0(panier_url, "?action=check_key&cle=", URLencode(cle, reserved = TRUE))
+    resp <- GET(url, timeout(10))
+    if (status_code(resp) != 200) return(list(ok = FALSE, message = "Erreur réseau lors de la vérification."))
+    parsed <- content(resp, as = "parsed", type = "application/json")
+    if (is.null(parsed$status) || parsed$status != "ok") {
+      return(list(ok = FALSE, message = parsed$message %||% "Clé non reconnue."))
+    }
+
+    # 2. Activer sur le serveur (mode clé seule)
+    act <- post_apps_script(panier_url, list(action = "activate_key", cle = cle))
+    if (is.null(act) || is.null(act$status) || act$status != "ok") {
+      return(list(ok = FALSE, message = act$message %||% "Activation échouée."))
+    }
+
+    email <- act$email %||% parsed$email %||% ""
+
+    # 3. Mettre à jour le cache local
+    local <- read_licence_local()
+    if (is.null(local)) local <- list()
+    local$email          <- email
+    local$statut         <- "premium"
+    local$jours_restants <- 9999L
+    local$derniere_verif <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+    write_licence_local(local)
+
+    list(ok = TRUE, email = email, message = "Licence premium activée !")
+  }, error = function(e) list(ok = FALSE, message = conditionMessage(e)))
+}
+
+# ── Changement d'email ────────────────────────────────────────────────────────
+
+changer_email <- function(nouvel_email, panier_url) {
+  nouvel_email <- tolower(trimws(nouvel_email))
+  if (!grepl("^[^@]+@[^@]+\\.[^@]+$", nouvel_email)) {
+    return(list(ok = FALSE, message = "Email invalide."))
+  }
+
+  local     <- read_licence_local()
+  old_email <- if (!is.null(local) && !is.null(local$email)) local$email else ""
+  if (old_email == nouvel_email) return(list(ok = TRUE, message = "Aucun changement."))
+
+  # Appel serveur si disponible
+  if (!is.null(panier_url) && nzchar(panier_url)) {
+    resp <- tryCatch(
+      post_apps_script(panier_url, list(
+        action    = "change_email",
+        old_email = old_email,
+        new_email = nouvel_email
+      )),
+      error = function(e) NULL
+    )
+    if (!is.null(resp) && !is.null(resp$statut)) {
+      if (is.null(local)) local <- list()
+      local$email          <- nouvel_email
+      local$statut         <- resp$statut
+      local$jours_restants <- as.integer(resp$jours_restants %||% TRIAL_DAYS)
+      local$derniere_verif <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+      if (resp$statut == "trial" && is.null(local$date_inscription))
+        local$date_inscription <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+      write_licence_local(local)
+      return(list(ok = TRUE, statut = resp$statut,
+                  jours_restants = as.integer(resp$jours_restants %||% TRIAL_DAYS),
+                  message = resp$message %||% paste0("Email mis à jour : ", nouvel_email)))
+    }
+  }
+
+  # Hors-ligne : mettre à jour localement
+  if (is.null(local)) local <- list()
+  local$email          <- nouvel_email
+  local$derniere_verif <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+  if (is.null(local$date_inscription)) {
+    local$date_inscription <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+    local$statut           <- "trial"
+    local$jours_restants   <- TRIAL_DAYS
+  }
+  write_licence_local(local)
+  list(ok = TRUE, statut = local$statut %||% "trial",
+       jours_restants = as.integer(local$jours_restants %||% TRIAL_DAYS),
+       message = paste0("Email mis à jour (hors-ligne) : ", nouvel_email))
 }
 
 # ── Génération de clé (admin) ─────────────────────────────────────────────────

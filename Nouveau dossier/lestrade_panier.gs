@@ -5,12 +5,14 @@
 // POST /exec                                   → envoyer réponses OU sauvegarder questionnaire
 // POST /exec  { action:"save_quest" }          → sauvegarder questionnaire
 // POST /exec  { action:"register_email" }      → enregistrer email trial
-// POST /exec  { action:"activate_key" }        → activer une clé licence
+// POST /exec  { action:"activate_key" }        → activer une clé licence (email optionnel)
+// POST /exec  { action:"change_email" }        → changer l'email d'une licence
 // GET  /exec?action=info                       → statut général
 // GET  /exec?action=list[&quest_id=X]          → lister réponses du panier
 // GET  /exec?action=clear[&quest_id=X]         → vider le panier
 // GET  /exec?action=get_quest&uid=LEST-XX      → récupérer un questionnaire
 // GET  /exec?action=check_licence&email=X      → vérifier statut licence
+// GET  /exec?action=check_key&cle=LEST-XXXX   → vérifier clé seule (retourne email + statut)
 // ============================================================================
 
 var SHEET_REPONSES       = "Panier";
@@ -71,6 +73,7 @@ function doPost(e) {
     if (body.action === "save_quest")      return saveQuestionnaire(body);
     if (body.action === "register_email")  return registerEmail(body);
     if (body.action === "activate_key")    return activateKey(body);
+    if (body.action === "change_email")    return changeEmail(body);
     if (body.action === "assign_key")      return doPostAssignKey(body);
 
     // Comportement par défaut : envoyer des réponses
@@ -159,37 +162,86 @@ function registerEmail(body) {
   });
 }
 
-// Activer une clé licence
+// Activer une clé licence (email optionnel — mode clé seule si absent)
 function activateKey(body) {
   var email = (body.email || "").toString().toLowerCase().trim();
   var cle   = (body.cle   || "").toString().trim();
-  if (!email || !cle) return jsonResponse({ status: "error", message: "email ou clé manquant" });
+  if (!cle) return jsonResponse({ status: "error", message: "clé manquante" });
 
   var sheet = getSheetLicences();
   var data  = sheet.getDataRange().getValues();
 
   for (var i = 1; i < data.length; i++) {
-    if (data[i][0].toString().toLowerCase() === email) {
-      var stored_cle = data[i][3].toString().trim();
-      if (stored_cle === "") {
-        return jsonResponse({ status: "error", message: "Aucune clé attribuée à cet email. Contactez le support." });
-      }
-      if (stored_cle !== cle) {
-        return jsonResponse({ status: "error", message: "Clé incorrecte" });
-      }
-      // Clé valide → activer
-      sheet.getRange(i + 1, 3).setValue("premium");
-      sheet.getRange(i + 1, 5).setValue(new Date().toISOString());
-      return jsonResponse({
-        status:  "ok",
-        action:  "activated",
-        email:   email,
-        statut:  "premium",
-        message: "Licence premium activée avec succès"
-      });
+    var row_email = data[i][0].toString().toLowerCase();
+    var row_cle   = data[i][3].toString().trim();
+
+    // Filtrer par email si fourni
+    if (email && row_email !== email) continue;
+
+    // Chercher la ligne dont la clé correspond
+    if (row_cle === "" || row_cle !== cle) continue;
+
+    // Clé valide → activer premium
+    sheet.getRange(i + 1, 3).setValue("premium");
+    sheet.getRange(i + 1, 5).setValue(new Date().toISOString());
+    return jsonResponse({
+      status:  "ok",
+      action:  "activated",
+      email:   row_email,
+      statut:  "premium",
+      message: "Licence premium activée avec succès"
+    });
+  }
+
+  if (email) {
+    return jsonResponse({ status: "error", message: "Clé incorrecte pour cet email. Vérifiez ou contactez le support." });
+  }
+  return jsonResponse({ status: "error", message: "Clé non reconnue. Vérifiez la clé ou contactez le support." });
+}
+
+// Changer l'email d'une licence existante
+function changeEmail(body) {
+  var old_email = (body.old_email || "").toString().toLowerCase().trim();
+  var new_email = (body.new_email || "").toString().toLowerCase().trim();
+  if (!new_email) return jsonResponse({ status: "error", message: "new_email manquant" });
+  if (old_email === new_email) return jsonResponse({ status: "ok", action: "no_change", email: new_email });
+
+  var sheet = getSheetLicences();
+  var data  = sheet.getDataRange().getValues();
+
+  // Si new_email existe déjà → restaurer son statut (auto-restore)
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString().toLowerCase() === new_email) {
+      var resp = buildLicenceResponse(data[i]);
+      resp.action = "restored";
+      return jsonResponse(resp);
     }
   }
-  return jsonResponse({ status: "error", message: "Email non trouvé. Lancez d'abord l'application." });
+
+  // Mettre à jour l'email dans la ligne existante
+  if (old_email) {
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0].toString().toLowerCase() === old_email) {
+        sheet.getRange(i + 1, 1).setValue(new_email);
+        var updated_row = sheet.getRange(i + 1, 1, 1, 6).getValues()[0];
+        var resp2 = buildLicenceResponse(updated_row);
+        resp2.action = "updated";
+        return jsonResponse(resp2);
+      }
+    }
+  }
+
+  // Aucun old_email trouvé → nouveau trial pour new_email
+  var now = new Date().toISOString();
+  sheet.appendRow([new_email, now, "trial", "", "", TRIAL_DAYS]);
+  return jsonResponse({
+    status:         "ok",
+    action:         "registered",
+    email:          new_email,
+    statut:         "trial",
+    jours_restants: TRIAL_DAYS,
+    message:        "Nouvel email enregistré — trial de " + TRIAL_DAYS + " jours"
+  });
 }
 
 // Construire la réponse licence depuis une ligne Sheet
@@ -251,6 +303,22 @@ function doGet(e) {
       var nq = Math.max(0, getSheetQuestionnaires().getLastRow() - 1);
       var nl = Math.max(0, getSheetLicences().getLastRow() - 1);
       return jsonResponse({ status: "ok", version: VERSION, nb_reponses: nr, nb_questionnaires: nq, nb_licences: nl });
+    }
+
+    // ── CHECK_KEY (clé seule → email + statut) ──
+    if (action === "check_key") {
+      var cle = (e.parameter.cle || "").toString().trim();
+      if (!cle) return jsonResponse({ status: "error", message: "cle manquante" });
+      var sheet = getSheetLicences();
+      var data  = sheet.getDataRange().getValues();
+      for (var i = 1; i < data.length; i++) {
+        if (data[i][3].toString().trim() === cle) {
+          var resp = buildLicenceResponse(data[i]);
+          resp.key_found = true;
+          return jsonResponse(resp);
+        }
+      }
+      return jsonResponse({ status: "error", message: "Clé non reconnue" });
     }
 
     // ── CHECK_LICENCE ──

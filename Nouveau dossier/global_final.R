@@ -1085,6 +1085,27 @@ panier_import <- function(quest_id = NULL, url = get_panier_url(), clear_after =
   list(imported = imported, skipped = skipped)
 }
 
+# Télécharge un questionnaire depuis le panier par UID (remplace download_quest_from_drive)
+download_quest_from_panier <- function(uid, panier_url = get_panier_url()) {
+  if (is.null(panier_url)) stop("URL panier non configurée.")
+  uid <- trimws(uid)
+  if (!nzchar(uid)) stop("UID vide.")
+
+  url  <- paste0(panier_url, "?action=get_quest&uid=", URLencode(uid, reserved = TRUE))
+  resp <- tryCatch(
+    httr::GET(url, httr::timeout(15)),
+    error = function(e) stop(paste("Erreur réseau :", e$message))
+  )
+  if (httr::status_code(resp) != 200) stop("Erreur serveur lors du téléchargement.")
+
+  parsed <- httr::content(resp, as = "parsed", type = "application/json")
+  if (is.null(parsed$status) || parsed$status != "ok")
+    stop(parsed$message %||% paste0("Questionnaire '", uid, "' introuvable dans le panier."))
+
+  # Reconstruire le JSON attendu par import_quest_from_json
+  jsonlite::toJSON(parsed$quest, auto_unbox = TRUE)
+}
+
 # Génère le QR code panier (URL Apps Script dans le QR au lieu de l'IP locale)
 export_quest_to_qr_panier <- function(quest_id, panier_url = get_panier_url()) {
   if (is.null(panier_url)) stop("URL panier non configurée — configurez le panier d'abord.")
