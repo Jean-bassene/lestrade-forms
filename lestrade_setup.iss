@@ -2,7 +2,7 @@
 ; Genere pour le build Desktop Windows
 
 #define AppName "Lestrade Forms"
-#define AppVersion "1.0.0"
+#define AppVersion "1.1.0"
 #define AppPublisher "Caritas"
 #define AppDir "c:\Projets\CaritasR\enquete\LestradeApp"
 #define AppIcon "c:\Projets\CaritasR\enquete\LestradeApp\lf_logo.ico"
@@ -45,8 +45,6 @@ Source: "{#AppDir}\inst\app\*"; DestDir: "{app}\app"; Flags: ignoreversion recur
 Source: "{#AppDir}\launcher.R"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#AppDir}\run_app.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#AppDir}\run_app.vbs"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#AppDir}\setup_drive.R"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#AppDir}\Setup Google Drive.bat"; DestDir: "{app}"; Flags: ignoreversion
 ; Base de donnees vide
 Source: "{#AppDir}\inst\extdata\questionnaires_empty.db"; DestDir: "{app}"; Flags: ignoreversion
 ; Icone LF
@@ -88,7 +86,7 @@ begin
   WizardForm.WelcomeLabel2.Caption :=
     'Lestrade Forms est une application de collecte de donnees terrain pour Caritas.' + #13#10 +
     '- Fonctionne sans connexion internet' + #13#10 +
-    '- Synchronisation via panier (Google Sheets)' + #13#10 +
+    '- Synchronisation via panier Apps Script' + #13#10 +
     '- Compatible avec l''application mobile Lestrade' + #13#10 +
     'Aucune installation de R n''est necessaire.';
 end;

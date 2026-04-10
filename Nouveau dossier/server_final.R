@@ -150,17 +150,17 @@ server <- function(input, output, session) {
           tags$tr(
             tags$td(style="padding:2px 4px;", "Trial"),
             tags$td(style="padding:2px 4px; color:#0D6EFD;", "Gratuit"),
-            tags$td(style="padding:2px 4px; color:#888;", "90 jours")
+            tags$td(style="padding:2px 4px; color:#888;", "90 jours complet")
           ),
           tags$tr(
-            tags$td(style="padding:2px 4px;", "Premium 1 poste"),
-            tags$td(style="padding:2px 4px; color:#0D6EFD;", "30 000 – 50 000 XOF"),
-            tags$td(style="padding:2px 4px; color:#888;", "1 an")
+            tags$td(style="padding:2px 4px;", "Annuel"),
+            tags$td(style="padding:2px 4px; color:#0D6EFD;", "25 000 FCFA"),
+            tags$td(style="padding:2px 4px; color:#888;", "~38 \u20ac / an")
           ),
           tags$tr(
-            tags$td(style="padding:2px 4px;", "ONG (5 postes)"),
-            tags$td(style="padding:2px 4px; color:#0D6EFD;", "100 000 – 150 000 XOF"),
-            tags$td(style="padding:2px 4px; color:#888;", "1 an")
+            tags$td(style="padding:2px 4px;", "Permanent"),
+            tags$td(style="padding:2px 4px; color:#0D6EFD;", "75 000 FCFA"),
+            tags$td(style="padding:2px 4px; color:#888;", "~114 \u20ac — bons de commande ONG")
           )
         )
       )
@@ -597,7 +597,7 @@ server <- function(input, output, session) {
       png(tmp, width = 200, height = 200, bg = "white")
       plot(qrcode::qr_code(url), col = c("white", "#003366"))
       dev.off()
-      knitr::image_uri(tmp)
+      paste0("data:image/png;base64,", base64enc::base64encode(tmp))
     }, error = function(e) NULL)
   })
 
