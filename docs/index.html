@@ -288,16 +288,46 @@
 <div class="hero">
   <h1>Collectez des données terrain<br><span>sans connexion internet</span></h1>
   <p>Application desktop Windows pour créer des questionnaires, collecter des réponses sur mobile et analyser vos données — conçue pour les ONG et organisations de terrain.</p>
-  <a href="https://github.com/Jean-bassene/lestrade-forms/releases/latest" class="btn-hero">
-    ⬇ Télécharger pour Windows
+  <a href="https://github.com/Jean-bassene/lestrade-forms/releases/download/v1.1.0/Lestrade_Forms_Setup_v1.1.0.exe" class="btn-hero">
+    💻 Télécharger pour Windows
   </a>
-  <a href="#licence" class="btn-hero outline">Demander une licence</a>
+  <a href="https://github.com/Jean-bassene/lestrade-forms/releases/download/v1.1.0/lestrade_forms_v1.1.0.apk" class="btn-hero outline">
+    📱 Télécharger l'APK Android
+  </a>
+  <a href="#licence" class="btn-hero outline" style="border-color:rgba(255,255,255,0.3);">Demander une licence</a>
+  <p style="margin-top:16px; font-size:13px; color:rgba(255,255,255,0.5);">Windows 10/11 · Android 8+ · Essai 90 jours gratuit</p>
+</div>
+
+<!-- TELECHARGEMENTS -->
+<div style="background:#f5f8fc; padding:40px;" id="telechargement">
+  <div style="max-width:700px; margin:0 auto; display:flex; gap:20px; flex-wrap:wrap; justify-content:center;">
+    <div style="flex:1; min-width:280px; background:#fff; border-radius:10px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,0.07); text-align:center;">
+      <div style="font-size:40px; margin-bottom:10px;">💻</div>
+      <h3 style="color:#003366; margin-bottom:6px;">Windows Desktop</h3>
+      <p style="font-size:13px; color:#666; margin-bottom:16px;">Créez les questionnaires, gérez les licences, analysez les données. Inclut R + Chrome — aucune installation supplémentaire.</p>
+      <a href="https://github.com/Jean-bassene/lestrade-forms/releases/download/v1.1.0/Lestrade_Forms_Setup_v1.1.0.exe"
+         style="display:inline-block; background:#003366; color:#fff; padding:10px 24px; border-radius:6px; text-decoration:none; font-weight:600; font-size:14px;">
+        ⬇ Télécharger .exe (v1.1.0)
+      </a>
+      <p style="font-size:11px; color:#999; margin-top:8px;">Windows 10 / 11 · 64 bits</p>
+    </div>
+    <div style="flex:1; min-width:280px; background:#fff; border-radius:10px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,0.07); text-align:center;">
+      <div style="font-size:40px; margin-bottom:10px;">📱</div>
+      <h3 style="color:#003366; margin-bottom:6px;">Android Mobile</h3>
+      <p style="font-size:13px; color:#666; margin-bottom:16px;">Collectez les réponses sur le terrain, sans connexion internet. Scannez le QR code du coordinateur pour démarrer.</p>
+      <a href="https://github.com/Jean-bassene/lestrade-forms/releases/download/v1.1.0/lestrade_forms_v1.1.0.apk"
+         style="display:inline-block; background:#F59E0B; color:#fff; padding:10px 24px; border-radius:6px; text-decoration:none; font-weight:600; font-size:14px;">
+        ⬇ Télécharger APK (v1.1.0)
+      </a>
+      <p style="font-size:11px; color:#999; margin-top:8px;">Android 8.0+ · Activer "Sources inconnues"</p>
+    </div>
+  </div>
 </div>
 
 <!-- FONCTIONNALITES -->
 <section id="fonctionnalites">
   <h2 class="section-title">Tout ce dont vous avez besoin sur le terrain</h2>
-  <p class="section-sub">Conçu pour les enquêteurs Caritas, ONG et organisations humanitaires</p>
+  <p class="section-sub">Conçu pour les enquêteurs ONG, organisations humanitaires et de terrain</p>
   <div class="features-grid">
     <div class="feature-card">
       <div class="feature-icon">📋</div>
@@ -404,14 +434,14 @@
       </div>
 
       <div class="price-card">
-        <h3>Licence Permanente</h3>
+        <h3>Pack 5 Clés</h3>
         <div class="price-amount">75 000 FCFA</div>
-        <div class="price-eur">~114 € — une seule fois</div>
+        <div class="price-eur">~114 € — paiement unique</div>
         <ul>
+          <li>5 clés indépendantes</li>
           <li>Toutes les fonctionnalités</li>
           <li>Sans renouvellement</li>
           <li>Idéal bons de commande ONG</li>
-          <li>Support inclus</li>
           <li>Paiement Wave / virement</li>
         </ul>
         <a href="#licence" class="btn-price">Demander une licence</a>
@@ -419,7 +449,7 @@
 
     </div>
     <p style="text-align:center; margin-top:24px; font-size:13px; color:#666;">
-      Paiement par Wave (+221 768 662 938) ou virement bancaire.
+      Paiement par Wave (+221 77 500 89 88) ou virement bancaire.
       Reçu émis automatiquement après activation.
     </p>
   </div>
@@ -433,7 +463,7 @@
     <form id="licence-form">
       <div class="form-group">
         <label>Nom / Organisation</label>
-        <input type="text" id="f-nom" placeholder="Ex : Jean Bassene / Caritas Sénégal" required />
+        <input type="text" id="f-nom" placeholder="Ex : Jean Bassene / ONG Humanitaire" required />
       </div>
       <div class="form-group">
         <label>Adresse email</label>
@@ -443,7 +473,7 @@
         <label>Formule souhaitée</label>
         <select id="f-formule">
           <option value="annuel">Licence Annuelle — 25 000 FCFA (~38 €)</option>
-          <option value="permanent">Licence Permanente — 75 000 FCFA (~114 €)</option>
+          <option value="permanent">Pack 5 Clés — 75 000 FCFA (~114 €)</option>
         </select>
       </div>
       <button type="submit" class="btn-submit" id="btn-submit">
@@ -464,7 +494,7 @@
   <div class="contact">
     <a href="mailto:bassene.jean@yahoo.com">bassene.jean@yahoo.com</a>
     &nbsp;·&nbsp;
-    WhatsApp / Wave : <a href="tel:+221768662938">+221 768 662 938</a>
+    WhatsApp / Wave : <a href="tel:+221775008988">+221 77 500 89 88</a>
   </div>
   <div style="margin-top:12px; font-size:12px;">
     &copy; 2026 Lestrade Forms · Développé par Jean Bassene
@@ -472,7 +502,7 @@
 </footer>
 
 <script>
-  var PANIER_URL = "https://script.google.com/macros/s/AKfycbyMCrihPNf97PDydFdbo9832e9tNSuOw7h6UKfbdP_Z8ymqQgeMxIzsraUt_6nmk2O7/exec";
+  var PANIER_URL = "https://script.google.com/macros/s/AKfycbwbC1llSYoren6fhXF9XAkY_YmpFvLV3ohZPaKvj2SFGm0dhJSxhDVL8e037AGJjA35/exec";
 
   document.getElementById("licence-form").addEventListener("submit", function(e) {
     e.preventDefault();

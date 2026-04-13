@@ -236,6 +236,10 @@ enregistrer_licence <- function(email, panier_url = NULL) {
 # ── Activation clé (utilisateur) ─────────────────────────────────────────────
 
 activer_cle_licence <- function(cle, panier_url = NULL) {
+  if (!curl::has_internet()) {
+    return(list(ok = FALSE, message = "Pas de connexion internet. Reconnectez-vous et réessayez."))
+  }
+
   local <- read_licence_local()
   if (is.null(local) || is.null(local$email) || local$email == "") {
     return(list(ok = FALSE, message = "Aucun email enregistré. Relancez l'application."))
@@ -263,6 +267,9 @@ activer_cle_licence <- function(cle, panier_url = NULL) {
 verifier_par_cle <- function(cle, panier_url) {
   cle <- trimws(cle)
   if (!nzchar(cle)) return(list(ok = FALSE, message = "Clé vide."))
+  if (!curl::has_internet()) {
+    return(list(ok = FALSE, message = "Pas de connexion internet. Reconnectez-vous et réessayez."))
+  }
   if (is.null(panier_url) || !nzchar(panier_url)) {
     return(list(ok = FALSE, message = "Connexion internet requise pour activer par clé."))
   }

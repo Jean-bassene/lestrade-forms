@@ -2,8 +2,10 @@
 LestradeApp/R-Portable/
 LestradeApp/ChromePortable/
 
-# Installeur compilé (distribué via GitHub Releases)
+# Installeur compilé + binaires lourds (distribués via GitHub Releases)
 installer_output/
+docs/downloads/*.exe
+docs/downloads/*.msi
 
 # Fichiers Excel temporaires
 ~$*.xlsx

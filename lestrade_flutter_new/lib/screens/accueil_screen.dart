@@ -72,8 +72,11 @@ class _AccueilScreenState extends State<AccueilScreen> {
       await _refresh();
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString().contains('inaccessible') || e.toString().contains('SocketException')
+          ? 'Pas de connexion — vérifiez le réseau WiFi ou le panier'
+          : 'Erreur : $e';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
       );
     }
   }

@@ -158,9 +158,17 @@ server <- function(input, output, session) {
             tags$td(style="padding:2px 4px; color:#888;", "~38 \u20ac / an")
           ),
           tags$tr(
-            tags$td(style="padding:2px 4px;", "Permanent"),
+            tags$td(style="padding:2px 4px;", "Pack 5 cl\u00e9s"),
             tags$td(style="padding:2px 4px; color:#0D6EFD;", "75 000 FCFA"),
-            tags$td(style="padding:2px 4px; color:#888;", "~114 \u20ac — bons de commande ONG")
+            tags$td(style="padding:2px 4px; color:#888;", "~114 \u20ac — 5 cl\u00e9s (ONG/\u00e9quipe)")
+          )
+        ),
+        div(style = "margin-top:8px;",
+          tags$a(
+            href = "#", class = "btn btn-warning btn-sm",
+            style = "width:100%; text-align:center; font-size:12px;",
+            onclick = "Shiny.setInputValue('btn_acheter_licence', Math.random()); return false;",
+            "\u27a4 Acheter une licence"
           )
         )
       )
@@ -172,7 +180,7 @@ server <- function(input, output, session) {
       tags$strong("Support : "),
       tags$a(href = "mailto:bassene.jean@yahoo.com", "bassene.jean@yahoo.com"),
       " · ",
-      tags$span("+221 768 662 938")
+      tags$span("+221 77 500 89 88")
     )
 
     # Footer
@@ -282,6 +290,12 @@ server <- function(input, output, session) {
   # ── Ouverture modal depuis badge / bannière ───────────────────────────────
   observeEvent(input$btn_licence_modal, {
     .show_licence_modal(easy_close = TRUE)
+  })
+
+  # ── Bouton "Acheter une licence" → ouvre la landing page ─────────────────
+  observeEvent(input$btn_acheter_licence, {
+    removeModal()
+    browseURL("https://lestrade-forms.netlify.app")
   })
 
   # ── Outputs résultats (initialisés vides) ─────────────────────────────────
@@ -1226,6 +1240,21 @@ server <- function(input, output, session) {
       return()
     }
     save_panier_url(url)
+
+    # Synchroniser l'email local avec le Sheet maintenant que le panier est configuré
+    email_local <- rv$licence_email
+    if (nzchar(email_local)) {
+      tryCatch({
+        resp <- httr::GET(paste0(url, "?action=check_licence&email=", URLencode(email_local, reserved = TRUE)),
+                          httr::timeout(8))
+        parsed <- httr::content(resp, as = "parsed", type = "application/json")
+        if (!is.null(parsed$statut) && parsed$statut == "inconnu") {
+          # Email pas encore dans le Sheet → on l'enregistre
+          post_apps_script(url, list(action = "register_email", email = email_local))
+        }
+      }, error = function(e) NULL)
+    }
+
     removeModal()
     showNotification("✓ URL panier enregistrée", type = "message")
   })

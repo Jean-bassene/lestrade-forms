@@ -26,8 +26,8 @@ var TRIAL_DAYS           = 90;
 
 var ADMIN_EMAIL          = "bassene.jean@yahoo.com";
 var APP_NAME             = "Lestrade Forms";
-var TARIFS               = { annuel: "25 000 FCFA (~38 €)", permanent: "75 000 FCFA (~114 €)" };
-var WAVE_NUMBER          = "+221 768 662 938";
+var TARIFS               = { annuel: "25 000 FCFA (~38 €)", permanent: "75 000 FCFA (~114 €) — 5 clés" };
+var WAVE_NUMBER          = "+221 77 500 89 88";
 
 // ── Feuilles ─────────────────────────────────────────────────────────────────
 
@@ -275,9 +275,34 @@ function changeEmail(body) {
     }
   }
 
-  // Aucun old_email trouvé → nouveau trial pour new_email
-  var now = new Date().toISOString();
-  sheet.appendRow([new_email, now, "trial", "", "", TRIAL_DAYS]);
+  // Aucun old_email trouvé → nouveau trial pour new_email + email bienvenue
+  var now     = new Date();
+  var nowIso  = now.toISOString();
+  var expiry  = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+  var expiryStr = Utilities.formatDate(expiry, "Africa/Dakar", "dd/MM/yyyy");
+  sheet.appendRow([new_email, nowIso, "trial", "", "", TRIAL_DAYS]);
+
+  var sujet = "[" + APP_NAME + "] Bienvenue — votre trial de " + TRIAL_DAYS + " jours a démarré";
+  var corps =
+    "Bonjour,\n\n" +
+    "Merci d'utiliser " + APP_NAME + " !\n\n" +
+    "Votre période d'essai gratuite est maintenant active.\n\n" +
+    "┌─────────────────────────────────────┐\n" +
+    "│  TRIAL GRATUIT                      │\n" +
+    "│  Email   : " + new_email + "\n" +
+    "│  Durée   : " + TRIAL_DAYS + " jours complets          │\n" +
+    "│  Expire  : " + expiryStr + "                  │\n" +
+    "└─────────────────────────────────────┘\n\n" +
+    "Pendant votre trial, vous avez accès à toutes les fonctionnalités.\n\n" +
+    "Pour continuer après le " + expiryStr + " :\n" +
+    "  • Annuelle  : " + TARIFS.annuel + "\n" +
+    "  • Permanente: " + TARIFS.permanent + "\n\n" +
+    "Demandez votre licence : " + ADMIN_EMAIL + "\n" +
+    "Paiement via Wave : " + WAVE_NUMBER + "\n\n" +
+    "Bonne collecte de données !\n" +
+    "L'équipe " + APP_NAME;
+  try { GmailApp.sendEmail(new_email, sujet, corps); } catch(e) {}
+
   return jsonResponse({
     status:         "ok",
     action:         "registered",
@@ -631,9 +656,33 @@ function adminActivate(body) {
       sheet.getRange(i + 1, 3).setValue("premium");
       sheet.getRange(i + 1, 5).setValue(now.toISOString());
 
+      // ── Pack Permanent : générer 4 clés supplémentaires (total 5) ──
+      var toutesLesCles = [cle];
+      if (formule === "permanent") {
+        for (var k = 0; k < 4; k++) {
+          var seed2 = email + now.getTime() + k + Math.random();
+          var hash2 = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+                      seed2.toString(), Utilities.Charset.UTF_8)
+                      .map(function(b) { return (b < 0 ? b + 256 : b).toString(16).padStart(2, "0"); })
+                      .join("").toUpperCase().substring(0, 16);
+          var cleExtra = "LEST-" + hash2.substring(0,4) + "-" + hash2.substring(4,8) + "-" +
+                                   hash2.substring(8,12) + "-" + hash2.substring(12,16);
+          toutesLesCles.push(cleExtra);
+          sheet.appendRow([email, now.toISOString(), "premium", cleExtra, now.toISOString(), "permanent"]);
+        }
+      }
+
       // ── Email 3 : Reçu / Ticket de caisse ──
       var sujet = "[" + APP_NAME + "] ✓ Paiement reçu — Licence activée — " + numRecu;
       var ligne = "─────────────────────────────────────────";
+      var clesList = toutesLesCles.length === 1
+        ? "  Clé     : " + toutesLesCles[0]
+        : toutesLesCles.map(function(c, idx) {
+            return "  Clé " + (idx + 1) + "   : " + c;
+          }).join("\n");
+      var activerInstr = toutesLesCles.length === 1
+        ? "  3. Entrez votre clé : " + toutesLesCles[0]
+        : "  3. Chaque utilisateur entre sa propre clé dans l'application";
       var corps =
         "Bonjour,\n\n" +
         "Votre paiement a été reçu et votre licence est activée. Merci !\n\n" +
@@ -645,13 +694,13 @@ function adminActivate(body) {
         "  Formule : " + libelle + "\n" +
         "  Montant : " + montant + "\n" +
         "  Date    : " + dateStr + " à " + heureStr + "\n" +
-        "  Clé     : " + cle + "\n" +
+        clesList + "\n" +
         ligne + "\n\n" +
         "Comment activer dans l'application :\n" +
         "  1. Ouvrez Lestrade Forms\n" +
         "  2. Cliquez sur le badge de licence en haut à droite\n" +
-        "  3. Entrez votre clé : " + cle + "\n" +
-        "  4. Cliquez Activer → votre accès premium est immédiat\n\n" +
+        activerInstr + "\n" +
+        "  4. Cliquez Activer → l'accès premium est immédiat\n\n" +
         "Conservez ce reçu comme preuve de paiement.\n\n" +
         "Merci pour votre confiance !\n" +
         "L'équipe " + APP_NAME + "\n" +
@@ -664,7 +713,8 @@ function adminActivate(body) {
         action:  "activated",
         email:   email,
         cle:     cle,
-        message: "Licence activée — email envoyé à " + email
+        cles:    toutesLesCles,
+        message: "Licence activée — " + toutesLesCles.length + " clé(s) envoyée(s) à " + email
       });
     }
   }
