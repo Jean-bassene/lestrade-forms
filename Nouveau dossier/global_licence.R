@@ -356,10 +356,57 @@ generer_cle_licence <- function(email) {
   email  <- tolower(trimws(email))
   seed   <- paste0(email, Sys.time(), sample(1000:9999, 1))
   hash   <- toupper(substr(digest::digest(seed, algo = "sha256"), 1, 16))
-  # Format : LEST-XXXX-XXXX-XXXX-XXXX
   paste0("LEST-",
     substr(hash, 1,  4), "-",
     substr(hash, 5,  8), "-",
     substr(hash, 9,  12), "-",
     substr(hash, 13, 16))
+}
+
+# ── Token admin (doit correspondre au calcul Apps Script) ─────────────────────
+
+get_admin_token <- function() {
+  toupper(substr(digest::digest("bassene.jean@yahoo.com", algo = "sha256", serialize = FALSE), 1, 16))
+}
+
+# ── Lister les demandes en attente (admin) ────────────────────────────────────
+
+admin_list_pending <- function(panier_url) {
+  tryCatch({
+    url  <- paste0(panier_url, "?action=list_pending")
+    resp <- httr::GET(url, httr::timeout(10))
+    if (httr::status_code(resp) != 200) return(NULL)
+    parsed <- httr::content(resp, as = "parsed", type = "application/json")
+    if (!is.null(parsed$status) && parsed$status == "ok") return(parsed$pending)
+    NULL
+  }, error = function(e) NULL)
+}
+
+# ── Demande de licence via formulaire (admin génère manuellement) ─────────────
+
+admin_request_licence <- function(nom, email, formule, panier_url) {
+  tryCatch({
+    resp <- post_apps_script(panier_url, list(
+      action  = "request_licence",
+      nom     = trimws(nom),
+      email   = tolower(trimws(email)),
+      formule = formule
+    ))
+    if (!is.null(resp) && !is.null(resp$status)) return(resp)
+    list(status = "error", message = "Pas de réponse du serveur")
+  }, error = function(e) list(status = "error", message = conditionMessage(e)))
+}
+
+# ── Activation admin d'une clé ────────────────────────────────────────────────
+
+admin_activate_cle <- function(cle, panier_url) {
+  tryCatch({
+    resp <- post_apps_script(panier_url, list(
+      action      = "admin_activate",
+      cle         = trimws(cle),
+      admin_token = get_admin_token()
+    ))
+    if (!is.null(resp) && !is.null(resp$status)) return(resp)
+    list(status = "error", message = "Pas de réponse du serveur")
+  }, error = function(e) list(status = "error", message = conditionMessage(e)))
 }

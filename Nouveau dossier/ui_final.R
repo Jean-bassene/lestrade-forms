@@ -407,7 +407,8 @@ ui <- fluidPage(
       tags$button(class="hnav-btn", onclick="$('a[data-value=\"Réponses\"]').tab('show')",         "Réponses"),
       tags$button(class="hnav-btn", onclick="$('a[data-value=\"Analytics\"]').tab('show')",        "Analytics"),
       tags$button(class="hnav-btn", onclick="$('a[data-value=\"Import\"]').tab('show')",           "Import"),
-      tags$button(class="hnav-btn", onclick="$('a[data-value=\"Analyse externe\"]').tab('show')", "Analyse externe")
+      tags$button(class="hnav-btn", onclick="$('a[data-value=\"Analyse externe\"]').tab('show')", "Analyse externe"),
+      uiOutput("admin_nav_btn")
     ),
     # Email utilisateur connecté
     uiOutput("header_user_email"),
@@ -761,6 +762,46 @@ ui <- fluidPage(
           uiOutput("ext_status_ui")
         ),
         analytics_panel_ui("ext_")
+      ),
+
+      # ── Admin Licences ─────────────────────────────────────────────────────
+      tabPanel("Admin",
+        div(class="panel-block",
+          div(class="badge-tag badge-navy", "Gestion des licences"),
+          h4(class="panel-title", "Demandes en attente de paiement"),
+          p(style="font-size:13px; color:#666;",
+            "Activez une licence dès réception du paiement Wave."),
+
+          fluidRow(
+            column(6,
+              div(style="display:flex; gap:8px; align-items:center; margin-bottom:12px;",
+                actionButton("btn_admin_refresh", "🔄 Actualiser", class="btn-sm btn-outline-secondary"),
+                uiOutput("admin_panier_status_ui")
+              )
+            )
+          ),
+
+          # Tableau des demandes pending
+          uiOutput("admin_pending_ui"),
+
+          hr(),
+          h4(class="panel-title", "Assigner une clé manuellement"),
+          p(style="font-size:13px; color:#666;",
+            "Pour les demandes hors formulaire (WhatsApp, email direct)."),
+          fluidRow(
+            column(4, textInput("admin_email_input", "Email client", placeholder="client@email.com")),
+            column(3,
+              selectInput("admin_formule_input", "Formule",
+                choices = c("Annuelle" = "annuel", "Permanente" = "permanent"))
+            ),
+            column(2,
+              div(style="margin-top:25px;",
+                actionButton("btn_admin_generate_key", "Générer & Envoyer", class="btn-primary btn-sm")
+              )
+            ),
+            column(3, uiOutput("admin_generated_key_ui"))
+          )
+        )
       )
 
     ) # fin tabsetPanel

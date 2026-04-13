@@ -204,6 +204,12 @@ server <- function(input, output, session) {
     ))
   }
 
+  ADMIN_EMAILS <- c("bassene.jean@yahoo.com")
+
+  is_admin <- reactive({
+    tolower(trimws(rv$licence_email)) %in% ADMIN_EMAILS
+  })
+
   # ── Email utilisateur dans le header ─────────────────────────────────────
   output$header_user_email <- renderUI({
     email <- rv$licence_email
@@ -216,6 +222,14 @@ server <- function(input, output, session) {
       ),
       email
     )
+  })
+
+  # ── Bouton Admin dans le header (admin uniquement) ────────────────────────
+  output$admin_nav_btn <- renderUI({
+    if (!is_admin()) return(NULL)
+    tags$button(class="hnav-btn",
+      onclick="$('a[data-value=\"Admin\"]').tab('show')",
+      "Admin")
   })
 
   # ── Badge licence dans le header ─────────────────────────────────────────
@@ -604,7 +618,7 @@ server <- function(input, output, session) {
   output$api_qr_ui <- renderUI({
     url <- sprintf("lestrade://%s:8765", .local_ip)
     if (is.null(.api_qr_src)) {
-      span(style="color:red;font-size:12px;", "Erreur génération QR — installez le package qrcode")
+      span(style="color:red;font-size:12px;", "Erreur génération QR — vérifiez les packages qrcode et base64enc")
     } else {
       div(style="display:flex;flex-direction:column;align-items:center;gap:8px;",
         div(style="background:white;padding:8px;border:2px solid #003366;border-radius:8px;",
@@ -1083,12 +1097,13 @@ server <- function(input, output, session) {
         p(tags$strong("Etapes de configuration :")),
         tags$ol(
           tags$li(
-            "Allez sur Google Sheets →",
-            actionButton("btn_open_sheets", "🌐 Ouvrir Google Sheets",
-                         class = "btn-sm btn-outline-secondary",
+            "Cliquez pour copier le Sheet template dans votre Drive →",
+            actionButton("btn_open_sheets", "📋 Copier le template Sheets",
+                         class = "btn-sm btn-primary",
                          style = "margin:0 4px;"),
-            "→ ", tags$strong("Nouveau"), " → créez un Sheet vide →",
-            " renommez-le ", tags$strong("Lestrade_Panier")
+            "→ Google vous propose ", tags$strong("\"Faire une copie\""),
+            " → cliquez ", tags$strong("OK"),
+            " (le sheet arrive dans votre Drive, déjà nommé ", tags$strong("Lestrade Panier"), ")"
           ),
           tags$li("Dans le Sheet → menu ", tags$strong("Extensions → Apps Script")),
           tags$li(
@@ -1143,7 +1158,7 @@ server <- function(input, output, session) {
 
   # Ouvrir Google Sheets dans le navigateur système
   observeEvent(input$btn_open_sheets, {
-    browseURL("https://sheets.google.com")
+    browseURL("https://docs.google.com/spreadsheets/d/1x7M_KD6txLxxqzY3Csb3bwom1WBSt2FMIrPPIx6Vvzw/copy")
   })
 
   # Bouton "Configurer l'URL" depuis le guide
@@ -1946,6 +1961,152 @@ server <- function(input, output, session) {
   observe({
     alpha_val <- input$ext_analytics_alpha%||%0.05
     updateRadioButtons(session,"analytics_alpha",selected=alpha_val)
+  })
+
+  # ══════════════════════════════════════════════════════════════════════════════
+  # ONGLET ADMIN LICENCES
+  # ══════════════════════════════════════════════════════════════════════════════
+
+  rv_pending <- reactiveVal(NULL)
+
+  # Statut panier dans l'onglet admin
+  output$admin_panier_status_ui <- renderUI({
+    panier_url <- get_panier_url()
+    if (is.null(panier_url))
+      span(style="color:#dc3545; font-size:12px;", "⚠ Panier non configuré")
+    else
+      span(style="color:#198754; font-size:12px;", "✓ Panier connecté")
+  })
+
+  # Charger les demandes en attente au démarrage et sur refresh
+  load_pending <- function() {
+    panier_url <- get_panier_url()
+    if (is.null(panier_url)) { rv_pending(NULL); return() }
+    withProgress(message = "Chargement des demandes...", value = 0.5, {
+      rv_pending(admin_list_pending(panier_url))
+    })
+  }
+
+  observe({ load_pending() })
+
+  observeEvent(input$btn_admin_refresh, { load_pending() })
+
+  # Tableau des demandes pending avec bouton Activer
+  output$admin_pending_ui <- renderUI({
+    pending <- rv_pending()
+    panier_url <- get_panier_url()
+
+    if (is.null(panier_url)) {
+      return(div(class="alert alert-warning",
+        "Configurez d'abord l'URL du panier Apps Script dans l'onglet Import."))
+    }
+    if (is.null(pending) || length(pending) == 0) {
+      return(div(class="alert alert-info", "Aucune demande en attente de paiement."))
+    }
+
+    rows <- lapply(seq_along(pending), function(i) {
+      p   <- pending[[i]]
+      cle <- p$cle %||% ""
+      btn_id <- paste0("btn_activate_", gsub("-", "_", cle))
+      formule_label <- if (!is.null(p$formule) && p$formule == "permanent")
+        "Permanente — 75 000 FCFA" else "Annuelle — 25 000 FCFA"
+
+      tags$tr(
+        tags$td(style="padding:6px 8px;", p$email %||% ""),
+        tags$td(style="padding:6px 8px; font-size:11px; color:#666;",
+          substr(p$date_demande %||% "", 1, 10)),
+        tags$td(style="padding:6px 8px;", formule_label),
+        tags$td(style="padding:6px 8px; font-family:monospace; font-size:11px;", cle),
+        tags$td(style="padding:6px 8px;",
+          actionButton(btn_id, "✓ Activer",
+            class = "btn-success btn-sm",
+            onclick = sprintf(
+              "Shiny.setInputValue('admin_activate_cle', '%s', {priority:'event'})", cle
+            )
+          )
+        )
+      )
+    })
+
+    tagList(
+      tags$table(
+        style="width:100%; border-collapse:collapse; font-size:13px;",
+        tags$thead(
+          tags$tr(style="background:#003366; color:#fff;",
+            tags$th(style="padding:6px 8px; text-align:left;", "Email"),
+            tags$th(style="padding:6px 8px; text-align:left;", "Date"),
+            tags$th(style="padding:6px 8px; text-align:left;", "Formule"),
+            tags$th(style="padding:6px 8px; text-align:left;", "Clé"),
+            tags$th(style="padding:6px 8px; text-align:left;", "Action")
+          )
+        ),
+        tags$tbody(rows)
+      )
+    )
+  })
+
+  # Activer une clé depuis le tableau (clic bouton)
+  observeEvent(input$admin_activate_cle, {
+    cle        <- trimws(input$admin_activate_cle)
+    panier_url <- get_panier_url()
+    if (!nzchar(cle) || is.null(panier_url)) return()
+
+    withProgress(message = "Activation en cours...", value = 0.5, {
+      resp <- admin_activate_cle(cle, panier_url)
+    })
+
+    if (!is.null(resp) && !is.null(resp$status) && resp$status == "ok") {
+      showNotification(
+        paste0("✓ Licence activée — email envoyé à ", resp$email %||% ""),
+        type = "message", duration = 6
+      )
+      load_pending()  # rafraîchir le tableau
+    } else {
+      showNotification(
+        paste0("Erreur : ", resp$message %||% "Activation échouée"),
+        type = "error", duration = 6
+      )
+    }
+  })
+
+  # Générer et envoyer une clé manuellement
+  observeEvent(input$btn_admin_generate_key, {
+    email      <- tolower(trimws(input$admin_email_input %||% ""))
+    formule    <- input$admin_formule_input %||% "annuel"
+    panier_url <- get_panier_url()
+
+    if (!grepl("^[^@]+@[^@]+\\.[^@]+$", email)) {
+      showNotification("Email invalide.", type = "warning"); return()
+    }
+    if (is.null(panier_url)) {
+      showNotification("Panier non configuré.", type = "warning"); return()
+    }
+
+    nom <- email  # pas de nom dans ce cas, on utilise l'email
+    withProgress(message = "Génération et envoi...", value = 0.5, {
+      resp <- admin_request_licence(nom, email, formule, panier_url)
+    })
+
+    if (!is.null(resp) && !is.null(resp$status) && resp$status == "ok") {
+      showNotification(
+        paste0("✓ Clé générée et envoyée à ", email),
+        type = "message", duration = 6
+      )
+      output$admin_generated_key_ui <- renderUI({
+        div(style="margin-top:25px;",
+          div(style="font-family:monospace; font-size:12px; background:#f8f9fa;
+                     padding:6px 10px; border-radius:4px; border:1px solid #dee2e6;",
+            resp$cle %||% ""),
+          tags$small(style="color:#666;", "En attente de paiement")
+        )
+      })
+      load_pending()
+    } else {
+      showNotification(
+        paste0("Erreur : ", resp$message %||% "Génération échouée"),
+        type = "error", duration = 6
+      )
+    }
   })
 
 } # fin server

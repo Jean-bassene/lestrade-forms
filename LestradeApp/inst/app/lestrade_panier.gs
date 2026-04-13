@@ -13,6 +13,9 @@
 // GET  /exec?action=get_quest&uid=LEST-XX      → récupérer un questionnaire
 // GET  /exec?action=check_licence&email=X      → vérifier statut licence
 // GET  /exec?action=check_key&cle=LEST-XXXX   → vérifier clé seule (retourne email + statut)
+// GET  /exec?action=list_pending              → lister demandes en attente de paiement (admin)
+// POST /exec  { action:"request_licence" }    → demande licence depuis landing page → email auto
+// POST /exec  { action:"admin_activate" }     → activer une clé (admin) → email confirmation client
 // ============================================================================
 
 var SHEET_REPONSES       = "Panier";
@@ -20,6 +23,11 @@ var SHEET_QUESTIONNAIRES = "Questionnaires";
 var SHEET_LICENCES       = "Licences";
 var VERSION              = "3.0";
 var TRIAL_DAYS           = 90;
+
+var ADMIN_EMAIL          = "bassene.jean@yahoo.com";
+var APP_NAME             = "Lestrade Forms";
+var TARIFS               = { annuel: "25 000 FCFA (~38 €)", permanent: "75 000 FCFA (~114 €)" };
+var WAVE_NUMBER          = "+221 768 662 938";
 
 // ── Feuilles ─────────────────────────────────────────────────────────────────
 
@@ -70,11 +78,13 @@ function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents);
 
-    if (body.action === "save_quest")      return saveQuestionnaire(body);
+    if (body.action === "save_quest")       return saveQuestionnaire(body);
     if (body.action === "register_email")  return registerEmail(body);
     if (body.action === "activate_key")    return activateKey(body);
     if (body.action === "change_email")    return changeEmail(body);
     if (body.action === "assign_key")      return doPostAssignKey(body);
+    if (body.action === "request_licence") return requestLicence(body);
+    if (body.action === "admin_activate")  return adminActivate(body);
 
     // Comportement par défaut : envoyer des réponses
     return saveReponses(body);
@@ -150,8 +160,42 @@ function registerEmail(body) {
   }
 
   // Nouvel email → trial
-  var now = new Date().toISOString();
-  sheet.appendRow([email, now, "trial", "", "", TRIAL_DAYS]);
+  var now       = new Date();
+  var nowIso    = now.toISOString();
+  var expiry    = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+  var expiryStr = Utilities.formatDate(expiry, "Africa/Dakar", "dd/MM/yyyy");
+
+  sheet.appendRow([email, nowIso, "trial", "", "", TRIAL_DAYS]);
+
+  // ── Email 1 : Bienvenue trial ──
+  var sujet = "[" + APP_NAME + "] Bienvenue — votre trial de " + TRIAL_DAYS + " jours a démarré";
+  var corps =
+    "Bonjour,\n\n" +
+    "Merci d'utiliser " + APP_NAME + " !\n\n" +
+    "Votre période d'essai gratuite est maintenant active.\n\n" +
+    "┌─────────────────────────────────────┐\n" +
+    "│  TRIAL GRATUIT                      │\n" +
+    "│  Email   : " + email + "\n" +
+    "│  Durée   : " + TRIAL_DAYS + " jours complets          │\n" +
+    "│  Expire  : " + expiryStr + "                  │\n" +
+    "└─────────────────────────────────────┘\n\n" +
+    "Pendant votre trial, vous avez accès à toutes les fonctionnalités :\n" +
+    "  ✓ Création de questionnaires illimités\n" +
+    "  ✓ Collecte de réponses sur mobile\n" +
+    "  ✓ Tableaux de bord analytiques\n" +
+    "  ✓ Export CSV / Excel\n" +
+    "  ✓ Synchronisation via panier Google Sheets\n\n" +
+    "Pour continuer après le " + expiryStr + ", choisissez une licence :\n\n" +
+    "  • Annuelle  : " + TARIFS.annuel + "\n" +
+    "  • Permanente: " + TARIFS.permanent + "\n\n" +
+    "Demandez votre licence : " + ADMIN_EMAIL + "\n" +
+    "Paiement via Wave : " + WAVE_NUMBER + "\n\n" +
+    "Bonne collecte de données !\n\n" +
+    "L'équipe " + APP_NAME + "\n" +
+    ADMIN_EMAIL + " · " + WAVE_NUMBER;
+
+  try { GmailApp.sendEmail(email, sujet, corps); } catch(e) {}
+
   return jsonResponse({
     status:        "ok",
     action:        "registered",
@@ -396,6 +440,24 @@ function doGet(e) {
       return jsonResponse({ status: "ok", licences: rows });
     }
 
+    // ── LIST_PENDING ──
+    if (action === "list_pending") {
+      var sheet = getSheetLicences();
+      var data  = sheet.getDataRange().getValues();
+      var rows  = [];
+      for (var i = 1; i < data.length; i++) {
+        if (data[i][2].toString() === "pending") {
+          rows.push({
+            email:            data[i][0].toString(),
+            date_demande:     data[i][1].toString(),
+            cle:              data[i][3].toString(),
+            formule:          data[i][5].toString()
+          });
+        }
+      }
+      return jsonResponse({ status: "ok", pending: rows });
+    }
+
     return jsonResponse({ status: "error", message: "action inconnue: " + action });
 
   } catch(err) {
@@ -425,6 +487,183 @@ function doPostAssignKey(body) {
   return jsonResponse({ status: "ok", action: "key_assigned_new", email: email });
 }
 
-// Route doPost complète avec assign_key
-// (remplace la fonction doPost principale ci-dessus)
+// ── DEMANDE DE LICENCE (depuis landing page) ──────────────────────────────────
+// POST { action:"request_licence", nom, email, formule:"annuel"|"permanent" }
+// → génère clé inactive, enregistre dans Licences, envoie email client + notif admin
+function requestLicence(body) {
+  var nom     = (body.nom     || "").toString().trim();
+  var email   = (body.email   || "").toString().toLowerCase().trim();
+  var formule = (body.formule || "annuel").toString().toLowerCase().trim();
+
+  if (!email) return jsonResponse({ status: "error", message: "email manquant" });
+  if (!nom)   nom = email;
+
+  var montant = formule === "permanent" ? TARIFS.permanent : TARIFS.annuel;
+  var libelle = formule === "permanent" ? "Licence Permanente" : "Licence Annuelle";
+
+  // Générer clé unique
+  var seed = email + nom + new Date().getTime() + Math.random();
+  var hash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+             seed, Utilities.Charset.UTF_8)
+             .map(function(b) { return (b < 0 ? b + 256 : b).toString(16).padStart(2, "0"); })
+             .join("").toUpperCase().substring(0, 16);
+  var cle = "LEST-" + hash.substring(0,4) + "-" + hash.substring(4,8) + "-" +
+                       hash.substring(8,12) + "-" + hash.substring(12,16);
+
+  // Enregistrer dans le Sheet (statut "pending" = clé inactive en attente de paiement)
+  var sheet = getSheetLicences();
+  var data  = sheet.getDataRange().getValues();
+  var now   = new Date().toISOString();
+  var found = false;
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0].toString().toLowerCase() === email) {
+      // Email déjà présent → mettre à jour la clé et la formule
+      sheet.getRange(i + 1, 3).setValue("pending");
+      sheet.getRange(i + 1, 4).setValue(cle);
+      sheet.getRange(i + 1, 6).setValue(formule);
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    sheet.appendRow([email, now, "pending", cle, "", formule]);
+  }
+
+  // ── Email au client ──
+  var sujet_client = "[" + APP_NAME + "] Votre clé de licence — en attente de paiement";
+  var corps_client =
+    "Bonjour " + nom + ",\n\n" +
+    "Merci pour votre demande de licence " + APP_NAME + ".\n\n" +
+    "Voici votre clé de licence :\n\n" +
+    "    " + cle + "\n\n" +
+    "⚠️  Cette clé est inactive. Elle sera activée dès réception de votre paiement.\n\n" +
+    "──────────────────────────────\n" +
+    "Formule choisie : " + libelle + "\n" +
+    "Montant à envoyer : " + montant + "\n" +
+    "──────────────────────────────\n\n" +
+    "Comment payer :\n" +
+    "  • Wave : envoyez " + montant + " au " + WAVE_NUMBER + "\n" +
+    "  • Virement bancaire : contactez-nous pour les coordonnées\n\n" +
+    "Important : mentionnez votre clé (" + cle + ") comme référence du paiement.\n\n" +
+    "Une fois le paiement confirmé, votre clé sera activée sous 24h.\n" +
+    "Saisissez-la dans l'application : menu Licence → Entrer une clé.\n\n" +
+    "Pour toute question : " + ADMIN_EMAIL + " · " + WAVE_NUMBER + "\n\n" +
+    "Cordialement,\n" +
+    "L'équipe " + APP_NAME;
+
+  GmailApp.sendEmail(email, sujet_client, corps_client);
+
+  // ── Notification admin ──
+  var sujet_admin = "[" + APP_NAME + "] Nouvelle demande — " + nom + " (" + libelle + ")";
+  var corps_admin =
+    "Nouvelle demande de licence reçue.\n\n" +
+    "Nom    : " + nom    + "\n" +
+    "Email  : " + email  + "\n" +
+    "Formule: " + libelle + " — " + montant + "\n" +
+    "Clé    : " + cle    + "\n" +
+    "Date   : " + now    + "\n\n" +
+    "→ Dès réception du paiement Wave, activez la clé depuis l'app (onglet Admin)\n" +
+    "  ou directement dans le Sheet Licences : statut → premium.";
+
+  GmailApp.sendEmail(ADMIN_EMAIL, sujet_admin, corps_admin);
+
+  return jsonResponse({
+    status:  "ok",
+    action:  "requested",
+    email:   email,
+    cle:     cle,
+    formule: formule,
+    montant: montant,
+    message: "Clé envoyée par email. En attente de paiement."
+  });
+}
+
+// ── ACTIVATION ADMIN (depuis app desktop) ────────────────────────────────────
+// POST { action:"admin_activate", cle, admin_token }
+// → passe le statut à "premium" + envoie email de confirmation au client
+function adminActivate(body) {
+  var cle         = (body.cle         || "").toString().trim();
+  var admin_token = (body.admin_token || "").toString().trim();
+
+  // Token simple : hash de ADMIN_EMAIL — à améliorer si besoin
+  var expected = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+                 ADMIN_EMAIL, Utilities.Charset.UTF_8)
+                 .map(function(b) { return (b < 0 ? b + 256 : b).toString(16).padStart(2, "0"); })
+                 .join("").substring(0, 16).toUpperCase();
+
+  if (admin_token !== expected) {
+    return jsonResponse({ status: "error", message: "Token admin invalide." });
+  }
+
+  if (!cle) return jsonResponse({ status: "error", message: "clé manquante" });
+
+  var sheet = getSheetLicences();
+  var data  = sheet.getDataRange().getValues();
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][3].toString().trim() === cle) {
+      var email   = data[i][0].toString();
+      var formule = data[i][5].toString();
+      var libelle = formule === "permanent" ? "Licence Permanente" : "Licence Annuelle";
+
+      var now        = new Date();
+      var dateStr    = Utilities.formatDate(now, "Africa/Dakar", "dd/MM/yyyy");
+      var heureStr   = Utilities.formatDate(now, "Africa/Dakar", "HH:mm");
+      var montant    = formule === "permanent" ? TARIFS.permanent : TARIFS.annuel;
+
+      // Numéro de reçu : LF-AAAA-XXXX (basé sur le nb de licences premium)
+      var nbPremium  = 0;
+      for (var j = 1; j < data.length; j++) {
+        if (data[j][2].toString() === "premium") nbPremium++;
+      }
+      var numRecu = "LF-" + now.getFullYear() + "-" + String(nbPremium + 1).padStart(4, "0");
+
+      sheet.getRange(i + 1, 3).setValue("premium");
+      sheet.getRange(i + 1, 5).setValue(now.toISOString());
+
+      // ── Email 3 : Reçu / Ticket de caisse ──
+      var sujet = "[" + APP_NAME + "] ✓ Paiement reçu — Licence activée — " + numRecu;
+      var ligne = "─────────────────────────────────────────";
+      var corps =
+        "Bonjour,\n\n" +
+        "Votre paiement a été reçu et votre licence est activée. Merci !\n\n" +
+        ligne + "\n" +
+        "  REÇU — " + APP_NAME + "\n" +
+        "  N° " + numRecu + "\n" +
+        ligne + "\n" +
+        "  Client  : " + email + "\n" +
+        "  Formule : " + libelle + "\n" +
+        "  Montant : " + montant + "\n" +
+        "  Date    : " + dateStr + " à " + heureStr + "\n" +
+        "  Clé     : " + cle + "\n" +
+        ligne + "\n\n" +
+        "Comment activer dans l'application :\n" +
+        "  1. Ouvrez Lestrade Forms\n" +
+        "  2. Cliquez sur le badge de licence en haut à droite\n" +
+        "  3. Entrez votre clé : " + cle + "\n" +
+        "  4. Cliquez Activer → votre accès premium est immédiat\n\n" +
+        "Conservez ce reçu comme preuve de paiement.\n\n" +
+        "Merci pour votre confiance !\n" +
+        "L'équipe " + APP_NAME + "\n" +
+        ADMIN_EMAIL + " · " + WAVE_NUMBER;
+
+      GmailApp.sendEmail(email, sujet, corps);
+
+      return jsonResponse({
+        status:  "ok",
+        action:  "activated",
+        email:   email,
+        cle:     cle,
+        message: "Licence activée — email envoyé à " + email
+      });
+    }
+  }
+
+  return jsonResponse({ status: "error", message: "Clé non trouvée : " + cle });
+}
+
+// ── LISTE DEMANDES EN ATTENTE (admin) ─────────────────────────────────────────
+// GET ?action=list_pending → retourne toutes les licences en statut "pending"
+// (ajout dans doGet → déjà couvert par list_licences, mais filtré ici pour commodité)
 // Note: déjà intégré dans doPost via les actions
