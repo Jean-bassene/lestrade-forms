@@ -194,7 +194,7 @@ function registerEmail(body) {
     "L'équipe " + APP_NAME + "\n" +
     ADMIN_EMAIL + " · " + WAVE_NUMBER;
 
-  try { GmailApp.sendEmail(email, sujet, corps); } catch(e) {}
+  try { GmailApp.sendEmail(email, sujet, corps, { name: APP_NAME, replyTo: ADMIN_EMAIL }); } catch(e) {}
 
   return jsonResponse({
     status:        "ok",
@@ -301,7 +301,7 @@ function changeEmail(body) {
     "Paiement via Wave : " + WAVE_NUMBER + "\n\n" +
     "Bonne collecte de données !\n" +
     "L'équipe " + APP_NAME;
-  try { GmailApp.sendEmail(new_email, sujet, corps); } catch(e) {}
+  try { GmailApp.sendEmail(new_email, sujet, corps, { name: APP_NAME, replyTo: ADMIN_EMAIL }); } catch(e) {}
 
   return jsonResponse({
     status:         "ok",
@@ -586,7 +586,7 @@ function requestLicence(body) {
     "Cordialement,\n" +
     "L'équipe " + APP_NAME;
 
-  GmailApp.sendEmail(email, sujet_client, corps_client);
+  GmailApp.sendEmail(email, sujet_client, corps_client, { name: APP_NAME, replyTo: ADMIN_EMAIL });
 
   // ── Notification admin ──
   var sujet_admin = "[" + APP_NAME + "] Nouvelle demande — " + nom + " (" + libelle + ")";
@@ -600,7 +600,7 @@ function requestLicence(body) {
     "→ Dès réception du paiement Wave, activez la clé depuis l'app (onglet Admin)\n" +
     "  ou directement dans le Sheet Licences : statut → premium.";
 
-  GmailApp.sendEmail(ADMIN_EMAIL, sujet_admin, corps_admin);
+  GmailApp.sendEmail(ADMIN_EMAIL, sujet_admin, corps_admin, { name: APP_NAME });
 
   return jsonResponse({
     status:  "ok",
@@ -706,7 +706,7 @@ function adminActivate(body) {
         "L'équipe " + APP_NAME + "\n" +
         ADMIN_EMAIL + " · " + WAVE_NUMBER;
 
-      GmailApp.sendEmail(email, sujet, corps);
+      GmailApp.sendEmail(email, sujet, corps, { name: APP_NAME, replyTo: ADMIN_EMAIL });
 
       return jsonResponse({
         status:  "ok",
