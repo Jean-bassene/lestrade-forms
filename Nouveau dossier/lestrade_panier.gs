@@ -440,6 +440,15 @@ function doGet(e) {
       return jsonResponse({ status: "ok", licences: rows });
     }
 
+    // ── REQUEST_LICENCE (depuis landing page via GET) ──
+    if (action === "request_licence") {
+      var nom_g     = (e.parameter.nom     || "").toString().trim();
+      var email_g   = (e.parameter.email   || "").toString().toLowerCase().trim();
+      var formule_g = (e.parameter.formule || "annuel").toString().toLowerCase().trim();
+      if (!email_g) return jsonResponse({ status: "error", message: "email manquant" });
+      return requestLicence({ nom: nom_g, email: email_g, formule: formule_g });
+    }
+
     // ── LIST_PENDING ──
     if (action === "list_pending") {
       var sheet = getSheetLicences();
