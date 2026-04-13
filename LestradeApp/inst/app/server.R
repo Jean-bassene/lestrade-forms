@@ -295,7 +295,7 @@ server <- function(input, output, session) {
   # ── Bouton "Acheter une licence" → ouvre la landing page ─────────────────
   observeEvent(input$btn_acheter_licence, {
     removeModal()
-    browseURL("https://lestrade-forms.netlify.app")
+    browseURL("https://lestradeforms.netlify.app")
   })
 
   # ── Outputs résultats (initialisés vides) ─────────────────────────────────
