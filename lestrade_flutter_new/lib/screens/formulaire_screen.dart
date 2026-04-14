@@ -7,6 +7,7 @@ import 'dart:math';
 import '../models/questionnaire.dart';
 import '../models/reponse.dart';
 import '../services/db_service.dart';
+import '../services/gps_service.dart';
 
 String _generateUuid() {
   final rng = Random.secure();
@@ -33,6 +34,8 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
   QuestionnaireFull? _full;
   bool _loading = true;
   bool _saving = false;
+  GpsResult? _gpsResult;
+  bool _gpsLoading = true;
 
   // Stocker les réponses : clé = "q_<id>"
   final Map<String, dynamic> _answers = {};
@@ -41,6 +44,12 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
   void initState() {
     super.initState();
     _load();
+    _acquireGps();
+  }
+
+  Future<void> _acquireGps() async {
+    final result = await GpsService.getPosition();
+    if (mounted) setState(() { _gpsResult = result; _gpsLoading = false; });
   }
 
   Future<void> _load() async {
@@ -75,11 +84,19 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
 
     setState(() => _saving = true);
     try {
+      final donnees = Map<String, dynamic>.from(_answers);
+      // Ajouter coordonnées GPS si disponibles
+      if (_gpsResult != null && _gpsResult!.hasPosition) {
+        donnees['_latitude']  = _gpsResult!.latitude;
+        donnees['_longitude'] = _gpsResult!.longitude;
+        donnees['_gps_accuracy'] = _gpsResult!.accuracy;
+      }
+
       final reponse = Reponse(
         uuid: _generateUuid(),
         questionnaireId: widget.questId,
         horodateur: DateTime.now().toIso8601String(),
-        donnees: Map<String, dynamic>.from(_answers),
+        donnees: donnees,
         syncPending: true,
       );
       await DbService.saveReponse(reponse);
@@ -120,6 +137,26 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
       appBar: AppBar(
         title: Text(_full!.questionnaire.nom),
         actions: [
+          // ── Indicateur GPS ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: _gpsLoading
+                ? const Tooltip(
+                    message: 'Acquisition GPS...',
+                    child: Icon(Icons.gps_not_fixed, color: Colors.orange),
+                  )
+                : _gpsResult != null && _gpsResult!.hasPosition
+                    ? Tooltip(
+                        message:
+                            'GPS acquis (±${_gpsResult!.accuracy?.toStringAsFixed(0)} m)',
+                        child:
+                            const Icon(Icons.gps_fixed, color: Colors.green),
+                      )
+                    : const Tooltip(
+                        message: 'GPS indisponible',
+                        child: Icon(Icons.gps_off, color: Colors.grey),
+                      ),
+          ),
           IconButton(
             icon: const Icon(Icons.check),
             onPressed: _saving ? null : _submit,

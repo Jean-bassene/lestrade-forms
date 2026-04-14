@@ -6,7 +6,7 @@
 library(RSQLite); library(DBI); library(dplyr); library(jsonlite)
 library(lubridate); library(ggplot2); library(plotly); library(tidyr)
 library(RColorBrewer); library(stringi); library(readxl); library(readr)
-library(httr)
+library(httr); library(leaflet)
 
 `%||%` <- function(x, y) if (is.null(x) || length(x) == 0) y else x
 
@@ -209,6 +209,10 @@ parse_reponses_to_wide <- function(qid) {
     p <- parsed_list[[i]]
     row <- list(reponse_id = reponses$id[i], horodateur = reponses$horodateur[i])
     for (k in seq_along(q_ids)) row[[col_ids[k]]] <- format_response_value(p[[q_ids[k]]])
+    # Coordonnées GPS (préfixe _ pour distinguer des questions)
+    row[["latitude"]]     <- if (!is.null(p[["_latitude"]]))  as.numeric(p[["_latitude"]])  else NA_real_
+    row[["longitude"]]    <- if (!is.null(p[["_longitude"]])) as.numeric(p[["_longitude"]]) else NA_real_
+    row[["gps_precision"]] <- if (!is.null(p[["_gps_accuracy"]])) round(as.numeric(p[["_gps_accuracy"]]), 1) else NA_real_
     row
   })
   bind_rows(rows)

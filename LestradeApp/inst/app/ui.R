@@ -605,6 +605,13 @@ ui <- fluidPage(
             actionButton("btn_modifier_reponse", "✏  Modifier",  class="btn-warning"),
             actionButton("btn_supprimer_reponse","🗑 Supprimer", class="btn-danger")
           )
+        ),
+        conditionalPanel(
+          condition = "output.carte_gps_visible",
+          div(class="panel-block",
+            div(class="badge-tag","Carte des points de collecte GPS"),
+            leafletOutput("carte_gps", height = "420px")
+          )
         )
       ),
 

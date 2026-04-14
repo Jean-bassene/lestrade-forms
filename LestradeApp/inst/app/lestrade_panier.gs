@@ -36,7 +36,7 @@ function getSheetReponses() {
   var sheet = ss.getSheetByName(SHEET_REPONSES);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_REPONSES);
-    sheet.appendRow(["quest_id", "uuid", "horodateur", "donnees_json", "recu_le"]);
+    sheet.appendRow(["quest_id", "uuid", "horodateur", "donnees_json", "recu_le", "latitude", "longitude"]);
     sheet.setFrozenRows(1);
   }
   return sheet;
@@ -111,7 +111,14 @@ function saveReponses(body) {
     var rep  = reponses[r];
     var uuid = rep.uuid || "";
     if (uuid && existingUUIDs[uuid]) continue;
-    sheet.appendRow([quest_id, uuid, rep.horodateur || recu_le, rep.donnees_json || "{}", recu_le]);
+    // Extraire lat/lon du JSON pour colonnes séparées
+    var lat = "", lon = "";
+    try {
+      var d = JSON.parse(rep.donnees_json || "{}");
+      if (d._latitude  !== undefined) lat = d._latitude;
+      if (d._longitude !== undefined) lon = d._longitude;
+    } catch(ex) {}
+    sheet.appendRow([quest_id, uuid, rep.horodateur || recu_le, rep.donnees_json || "{}", recu_le, lat, lon]);
     existingUUIDs[uuid] = true;
     saved++;
   }

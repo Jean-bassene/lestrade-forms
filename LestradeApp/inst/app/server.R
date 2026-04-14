@@ -930,6 +930,41 @@ server <- function(input, output, session) {
     if (length(idx)>0&&idx<=nrow(bundle$wide)) rv$selected_rep_id <- bundle$wide$reponse_id[idx]
   })
 
+  # ── CARTE GPS ───────────────────────────────────────────────────────────────
+  gps_data <- reactive({
+    bundle <- response_bundle(); wide <- bundle$wide
+    if (nrow(wide)==0 || !all(c("latitude","longitude") %in% names(wide))) return(NULL)
+    df <- wide[!is.na(wide$latitude) & !is.na(wide$longitude), ]
+    if (nrow(df)==0) return(NULL)
+    df
+  })
+
+  output$carte_gps_visible <- reactive({ !is.null(gps_data()) })
+  outputOptions(output, "carte_gps_visible", suspendWhenHidden = FALSE)
+
+  output$carte_gps <- renderLeaflet({
+    df <- gps_data()
+    if (is.null(df)) return(leaflet() %>% addTiles())
+    leaflet(df) %>%
+      addProviderTiles(providers$OpenStreetMap) %>%
+      addCircleMarkers(
+        lng   = ~longitude, lat = ~latitude,
+        radius = 7,
+        color  = "#003366", fillColor = "#F59E0B",
+        fillOpacity = 0.9, stroke = TRUE, weight = 2,
+        popup = ~paste0(
+          "<b>Réponse</b><br>",
+          "Date : ", horodateur, "<br>",
+          if ("gps_precision" %in% names(df))
+            paste0("Précision : ±", gps_precision, " m") else ""
+        )
+      ) %>%
+      fitBounds(
+        lng1 = min(df$longitude), lat1 = min(df$latitude),
+        lng2 = max(df$longitude), lat2 = max(df$latitude)
+      )
+  })
+
   get_selected_response <- reactive({
     bundle <- response_bundle()
     if (is.null(rv$selected_rep_id)||nrow(bundle$raw)==0) return(NULL)
