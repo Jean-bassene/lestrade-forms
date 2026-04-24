@@ -48,6 +48,13 @@ lestrade_drive_cache/
 .secrets_desktop/
 .secrets_mobile/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
 # Fichiers système
 .DS_Store
 Thumbs.db

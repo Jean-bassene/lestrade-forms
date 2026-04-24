@@ -1,0 +1,136 @@
+/* Lestrade Forms — Desktop UI */
+
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: #f4f6f8;
+  color: #1f2933;
+  margin: 0;
+}
+
+.main-wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Hero */
+.hero {
+  background: linear-gradient(135deg, #16324f 0%, #245c7c 55%, #e6a700 140%);
+  color: white;
+  border-radius: 18px;
+  padding: 28px 32px;
+  margin-bottom: 18px;
+  box-shadow: 0 12px 30px rgba(22, 50, 79, 0.18);
+}
+.hero h1 { margin: 0 0 6px; font-size: 28px; font-weight: 700; }
+.hero p  { margin: 0; font-size: 15px; opacity: 0.92; }
+
+/* Cards */
+.card {
+  background: white;
+  border: 1px solid #dde3ea;
+  border-radius: 16px;
+  padding: 20px;
+  margin: 14px 0;
+  box-shadow: 0 4px 16px rgba(31, 41, 51, 0.06);
+}
+
+.section-card {
+  background: #fbfcfd;
+  border: 1px solid #d9e2ec;
+  border-left: 5px solid #245c7c;
+  border-radius: 14px;
+  padding: 14px;
+  margin: 12px 0;
+}
+
+/* Metrics */
+.metric {
+  background: linear-gradient(160deg, #ffffff 0%, #f6f9fc 100%);
+  border: 1px solid #dde3ea;
+  border-radius: 14px;
+  padding: 18px 12px;
+  text-align: center;
+  min-height: 110px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.metric-value { font-size: 30px; font-weight: 700; color: #16324f; }
+.metric-label { font-size: 12px; color: #52606d; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+
+/* Badges */
+.badge-step {
+  display: inline-block;
+  background: #eaf2f8;
+  color: #16324f;
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+/* Alert boxes */
+.alert-success { background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 10px; padding: 12px 16px; color: #2e7d32; }
+.alert-error   { background: #fce4e4; border: 1px solid #f5c6c6; border-radius: 10px; padding: 12px 16px; color: #c62828; }
+.alert-info    { background: #e3f2fd; border: 1px solid #90caf9; border-radius: 10px; padding: 12px 16px; color: #1565c0; }
+.alert-warn    { background: #fff8e1; border: 1px solid #ffe082; border-radius: 10px; padding: 12px 16px; color: #f57f17; }
+
+/* Tabs */
+.nav-tabs .nav-link          { font-weight: 600; color: #52606d; }
+.nav-tabs .nav-link.active   { color: #16324f; border-bottom: 3px solid #e6a700; }
+
+/* Welcome modal */
+.welcome-modal .modal-header { background: linear-gradient(135deg, #16324f, #245c7c); color: white; border-radius: 14px 14px 0 0; }
+.welcome-modal .modal-title  { font-weight: 700; }
+
+/* Hint text */
+.hint { color: #6b7785; font-size: 13px; }
+
+/* Form actions */
+.form-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* Question item in builder */
+.question-item {
+  background: white;
+  border: 1px solid #e5eaf0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.question-item-text { flex: 1; }
+.question-type-badge {
+  font-size: 11px;
+  background: #eaf2f8;
+  color: #245c7c;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Ad zone placeholder */
+.ad-zone {
+  background: #f9f9f9;
+  border: 2px dashed #c8d0da;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  color: #8a9ab0;
+  font-size: 13px;
+  margin: 10px 0;
+}
+
+/* Progress */
+.progress-bar-custom {
+  height: 8px;
+  background: linear-gradient(90deg, #245c7c, #2ca02c);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
