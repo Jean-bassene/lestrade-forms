@@ -10,10 +10,6 @@ def register(app):
     # ── Métriques globales (header + onglet Accueil) ─────────────────────────
 
     @callback(
-        Output("metric-questionnaires", "children"),
-        Output("metric-sections",       "children"),
-        Output("metric-questions",      "children"),
-        Output("metric-reponses",       "children"),
         Output("acc-metric-quest",      "children"),
         Output("acc-metric-sec",        "children"),
         Output("acc-metric-q",          "children"),
@@ -46,7 +42,7 @@ def register(app):
             })
 
         s = str(nb_q), str(nb_s), str(nb_qu), str(nb_rep)
-        return *s, *s, rows
+        return *s, rows
 
     # ── Créer questionnaire ───────────────────────────────────────────────────
 

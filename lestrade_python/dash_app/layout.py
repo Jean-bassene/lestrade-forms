@@ -73,6 +73,71 @@ def welcome_modal() -> dbc.Modal:
     )
 
 
+# ── Popup freemium ───────────────────────────────────────────────────────────
+
+def freemium_modal() -> dbc.Modal:
+    return dbc.Modal(
+        id="modal-freemium",
+        is_open=False,
+        backdrop=True,
+        keyboard=True,
+        children=[
+            dbc.ModalHeader(dbc.ModalTitle("Lestrade Forms"), close_button=True),
+            dbc.ModalBody([
+                html.P(
+                    "Choisissez comment utiliser Lestrade Forms. "
+                    "Vous pouvez changer de formule à tout moment.",
+                    className="text-center hint mb-4",
+                ),
+                dbc.Row([
+                    dbc.Col([
+                        html.Div(style={
+                            "border": "1.5px solid #dde3ea", "borderRadius": "12px",
+                            "padding": "20px", "textAlign": "center", "height": "100%",
+                        }, children=[
+                            html.Div("GRATUIT", style={"fontSize": "11px", "fontWeight": "700",
+                                                        "letterSpacing": ".08em", "color": "#6b7785"}),
+                            html.H3("Free", style={"fontWeight": "800", "color": "#245c7c", "margin": "10px 0"}),
+                            html.Ul([
+                                html.Li("Toutes les fonctionnalités"),
+                                html.Li("Collecte terrain illimitée"),
+                                html.Li("Analytics avancés"),
+                                html.Li("Zone publicitaire affichée", style={"color": "#6b7785"}),
+                            ], className="text-start mb-4", style={"fontSize": "13px", "paddingLeft": "20px"}),
+                            dbc.Button("Continuer gratuitement", id="btn-freemium-free",
+                                       color="secondary", outline=True, className="w-100"),
+                        ]),
+                    ], width=6),
+                    dbc.Col([
+                        html.Div(style={
+                            "border": "2px solid #245c7c", "borderRadius": "12px",
+                            "padding": "20px", "textAlign": "center", "height": "100%",
+                            "background": "#f8fbff",
+                        }, children=[
+                            html.Div("PREMIUM", style={"fontSize": "11px", "fontWeight": "700",
+                                                        "letterSpacing": ".08em", "color": "#245c7c"}),
+                            html.H3("Pro", style={"fontWeight": "800", "color": "#245c7c", "margin": "10px 0"}),
+                            html.Ul([
+                                html.Li("Toutes les fonctionnalités"),
+                                html.Li("Collecte terrain illimitée"),
+                                html.Li("Analytics avancés"),
+                                html.Li([html.Strong("Sans publicité"), " ✓"],
+                                        style={"color": "#057a55"}),
+                            ], className="text-start mb-3", style={"fontSize": "13px", "paddingLeft": "20px"}),
+                            dbc.Input(id="input-licence-key", placeholder="Clé de licence…",
+                                      maxLength=64, size="sm", className="mb-2"),
+                            html.Div(id="freemium-key-error", style={"display": "none"},
+                                     className="alert-error mb-2"),
+                            dbc.Button("Activer la licence", id="btn-freemium-activate",
+                                       color="primary", className="w-100"),
+                        ]),
+                    ], width=6),
+                ], className="g-3"),
+            ]),
+        ],
+    )
+
+
 # ── Onglet Accueil ────────────────────────────────────────────────────────────
 
 def tab_accueil() -> html.Div:
@@ -758,26 +823,21 @@ def build_layout() -> html.Div:
     return html.Div(className="main-wrap", children=[
         # Stores globaux
         dcc.Store(id="store-selected-quest-id"),
-        dcc.Store(id="store-user-email", storage_type="local"),
-        dcc.Store(id="store-panier-url", storage_type="local"),
+        dcc.Store(id="store-user-email",    storage_type="local"),
+        dcc.Store(id="store-panier-url",    storage_type="local"),
+        dcc.Store(id="store-licence-key",   storage_type="local"),
+        dcc.Store(id="store-freemium-seen", storage_type="session"),
         dcc.Interval(id="interval-refresh", interval=30_000, n_intervals=0),
 
-        # Popup bienvenue
+        # Modals
         welcome_modal(),
+        freemium_modal(),
 
         # Hero
         html.Div(className="hero", children=[
             html.H1("Lestrade Forms"),
             html.P("Construction de formulaires · Collecte terrain · Analytics avancés"),
         ]),
-
-        # Métriques globales
-        dbc.Row([
-            dbc.Col(html.Div(className="metric", children=[html.Div("—", id="metric-questionnaires", className="metric-value"), html.Div("Questionnaires", className="metric-label")]), width=3),
-            dbc.Col(html.Div(className="metric", children=[html.Div("—", id="metric-sections",       className="metric-value"), html.Div("Sections",       className="metric-label")]), width=3),
-            dbc.Col(html.Div(className="metric", children=[html.Div("—", id="metric-questions",      className="metric-value"), html.Div("Questions",      className="metric-label")]), width=3),
-            dbc.Col(html.Div(className="metric", children=[html.Div("—", id="metric-reponses",       className="metric-value"), html.Div("Réponses",       className="metric-label")]), width=3),
-        ], className="mb-3 g-2"),
 
         # Tabs principaux
         dbc.Tabs(id="main-tabs", active_tab="accueil", children=[
@@ -793,12 +853,13 @@ def build_layout() -> html.Div:
                     active_label_style={"color": "#e6a700"},
                     ),
             dbc.Tab(label="Import externe", tab_id="import",       children=tab_import()),
-            dbc.Tab(label="Admin",          tab_id="admin",        children=tab_admin(),
-                    label_style={"color": "#9b1c1c"},
-                    active_label_style={"color": "#c81e1e"},
+            dbc.Tab(label="Admin",          tab_id="admin",        id="tab-admin",
+                    children=tab_admin(),
+                    label_style={"display": "none"},
+                    disabled=True,
                     ),
         ]),
 
         html.Div(className="ad-zone", id="ad-zone",
-                 children="[ Zone publicitaire — activée après configuration Drive ]"),
+                 children="[ Zone publicitaire ]"),
     ])
