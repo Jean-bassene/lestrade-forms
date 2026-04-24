@@ -13,17 +13,92 @@ body {
   padding: 20px;
 }
 
-/* Hero */
+/* ── En-tête unifié (brand gauche + tabs droite) ─────────────────────────── */
+
+.app-header-container {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+/* Brand superposé sur la barre de navigation */
+.app-brand {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 52px;           /* doit correspondre à la hauteur des nav-link */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 22px;
+  z-index: 10;
+  pointer-events: none;   /* les clics passent au travers vers les onglets */
+}
+.header-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: white;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.header-subtitle {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+
+/* Barre de navigation (fond sombre, onglets à droite du brand) */
+.app-tabs > ul.nav.nav-tabs {
+  background: linear-gradient(135deg, #16324f 0%, #245c7c 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 14px 14px 0 0;
+  padding: 0 12px 0 210px;  /* 210px = espace pour le brand */
+  margin: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.app-tabs > ul.nav.nav-tabs::-webkit-scrollbar { display: none; }
+
+/* Onglets dans le header */
+.app-tabs > ul.nav.nav-tabs .nav-link {
+  color: rgba(255, 255, 255, 0.65) !important;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 16px 13px !important;
+  border: none !important;
+  border-bottom: 3px solid transparent !important;
+  border-radius: 0 !important;
+  white-space: nowrap;
+  background: transparent !important;
+  transition: color .15s, border-color .15s;
+}
+.app-tabs > ul.nav.nav-tabs .nav-link:hover {
+  color: white !important;
+  border-bottom-color: rgba(255, 255, 255, 0.3) !important;
+}
+.app-tabs > ul.nav.nav-tabs .nav-link.active {
+  color: #e6a700 !important;
+  border-bottom: 3px solid #e6a700 !important;
+}
+.app-tabs > ul.nav.nav-tabs .nav-link.disabled {
+  display: none !important;   /* cache l'onglet Admin pour les non-admins */
+}
+
+/* Zone de contenu (en-dessous du header) */
+.app-tabs > .tab-content {
+  padding-top: 0;
+}
+
+/* Hero interne (utilisé dans Import et Accueil) */
 .hero {
   background: linear-gradient(135deg, #16324f 0%, #245c7c 55%, #e6a700 140%);
   color: white;
-  border-radius: 18px;
-  padding: 28px 32px;
-  margin-bottom: 18px;
-  box-shadow: 0 12px 30px rgba(22, 50, 79, 0.18);
+  border-radius: 14px;
+  padding: 22px 26px;
+  margin-bottom: 14px;
 }
-.hero h1 { margin: 0 0 6px; font-size: 28px; font-weight: 700; }
-.hero p  { margin: 0; font-size: 15px; opacity: 0.92; }
+.hero h1, .hero h3 { margin: 0 0 6px; font-weight: 700; }
+.hero p  { margin: 0; font-size: 14px; opacity: 0.9; }
 
 /* Cards */
 .card {

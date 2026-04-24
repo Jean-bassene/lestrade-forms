@@ -834,31 +834,29 @@ def build_layout() -> html.Div:
         welcome_modal(),
         freemium_modal(),
 
-        # Hero
-        html.Div(className="hero", children=[
-            html.H1("Lestrade Forms"),
-            html.P("Construction de formulaires · Collecte terrain · Analytics avancés"),
-        ]),
-
-        # Tabs principaux
-        dbc.Tabs(id="main-tabs", active_tab="accueil", children=[
-            dbc.Tab(label="Accueil",        tab_id="accueil",      children=tab_accueil()),
-            dbc.Tab(label="Gestion",        tab_id="gestion",      children=tab_gestion()),
-            dbc.Tab(label="Construction",   tab_id="construction", children=tab_construction()),
-            dbc.Tab(label="Remplir",        tab_id="remplir",      children=tab_remplir()),
-            dbc.Tab(label="Réponses",       tab_id="reponses",     children=tab_reponses()),
-            dbc.Tab(label="Analytics",      tab_id="analytics",    children=tab_analytics()),
-            dbc.Tab(label="Panier / Drive", tab_id="panier",       id="tab-panier",
-                    children=tab_panier(),
-                    label_style={"color": "#6b7785"},
-                    active_label_style={"color": "#e6a700"},
-                    ),
-            dbc.Tab(label="Import externe", tab_id="import",       children=tab_import()),
-            dbc.Tab(label="Admin",          tab_id="admin",        id="tab-admin",
-                    children=tab_admin(),
-                    label_style={"display": "none"},
-                    disabled=True,
-                    ),
+        # ── En-tête unifié : brand gauche + onglets droite ───────────────────
+        html.Div(className="app-header-container", children=[
+            # Brand (positionné en overlay à gauche de la barre de tabs)
+            html.Div(className="app-brand", children=[
+                html.Span("Lestrade Forms", className="header-title"),
+                html.Span("Collecte · Analyse · Décision", className="header-subtitle"),
+            ]),
+            # Tabs — la barre .nav-tabs hérite du fond sombre via CSS
+            dbc.Tabs(id="main-tabs", active_tab="accueil", className="app-tabs", children=[
+                dbc.Tab(label="Accueil",        tab_id="accueil",      children=tab_accueil()),
+                dbc.Tab(label="Gestion",        tab_id="gestion",      children=tab_gestion()),
+                dbc.Tab(label="Construction",   tab_id="construction", children=tab_construction()),
+                dbc.Tab(label="Remplir",        tab_id="remplir",      children=tab_remplir()),
+                dbc.Tab(label="Réponses",       tab_id="reponses",     children=tab_reponses()),
+                dbc.Tab(label="Analytics",      tab_id="analytics",    children=tab_analytics()),
+                dbc.Tab(label="Panier / Drive", tab_id="panier",       id="tab-panier",
+                        children=tab_panier()),
+                dbc.Tab(label="Import externe", tab_id="import",       children=tab_import()),
+                dbc.Tab(label="Admin",          tab_id="admin",        id="tab-admin",
+                        children=tab_admin(),
+                        label_style={"display": "none"},
+                        disabled=True),
+            ]),
         ]),
 
         html.Div(className="ad-zone", id="ad-zone",

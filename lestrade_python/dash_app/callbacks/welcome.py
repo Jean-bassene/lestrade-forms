@@ -82,8 +82,7 @@ def register(app):
         # Tente l'API — silencieux si indisponible
         api_client.set_config("user_email", clean_email)
 
-        panier_style = {"color": "#e6a700", "fontWeight": "700"}
-        return False, clean_email, "", {"display": "none"}, panier_style
+        return False, clean_email, "", {"display": "none"}, {"color": "#e6a700", "fontWeight": "700"}
 
     # ── Passer (Plus tard) — cooldown 30 min ─────────────────────────────────
 
@@ -110,7 +109,7 @@ def register(app):
     def update_panier_tab_style(email):
         if email and not email.startswith("__skip__"):
             return {"color": "#e6a700", "fontWeight": "700"}
-        return {"color": "#6b7785"}
+        return {}   # hérite de la couleur CSS du header (blanc semi-transparent)
 
     # ── Onglet Admin : visible seulement pour l'admin ─────────────────────────
 
@@ -121,7 +120,7 @@ def register(app):
     )
     def toggle_admin_tab(email):
         if email and email.strip().lower() == _ADMIN_EMAIL:
-            return {"color": "#9b1c1c"}, False
+            return {"color": "#f87171"}, False   # rouge clair lisible sur fond sombre
         return {"display": "none"}, True
 
     # ── Modale freemium : affichage au démarrage ──────────────────────────────

@@ -279,4 +279,4 @@ def register(app):
         clean = str(email).strip().lower()
         api_client.set_config("user_email", clean)
 
-        return False, clean, "", {"display": "none"}, {"color": "#e6a700", "fontWeight": "700"}
+        return False, clean, "", {"display": "none"}, {"color": "#e6a700", "fontWeight": "800"}
