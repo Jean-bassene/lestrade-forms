@@ -355,9 +355,6 @@ def _import_via_crud(
                 "horodateur":   horo,
             })
 
-        res = api_client.post_reponse.__module__  # flush — appel direct
-        # Appel direct batch
-        from ..utils import api_client as ac
         import httpx
         try:
             with httpx.Client(base_url="http://127.0.0.1:8765", timeout=30) as c:

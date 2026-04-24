@@ -25,13 +25,13 @@ def register(app):
     )
     def refresh_panier_status(_n, email, panier_url):
         # Statut email
-        if email and email != "__skip__":
+        if email and not email.startswith("__skip__"):
             email_div = html.Div([
                 html.Span("✓ ", style={"color": "#2e7d32", "fontWeight": "700"}),
                 html.Strong(security.sanitize_text(email, 100)),
                 html.Span(" (configuré)", className="hint ms-2"),
             ])
-        elif email == "__skip__":
+        elif email and email.startswith("__skip__"):
             email_div = html.Div("— Non configuré (ignoré)", className="hint")
         else:
             email_div = html.Div([
