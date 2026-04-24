@@ -87,6 +87,11 @@ body {
 .welcome-modal .modal-header { background: linear-gradient(135deg, #16324f, #245c7c); color: white; border-radius: 14px 14px 0 0; }
 .welcome-modal .modal-title  { font-weight: 700; }
 
+/* Freemium modal */
+.modal-freemium .modal-header { background: linear-gradient(135deg, #16324f, #245c7c); color: white; border-radius: 14px 14px 0 0; }
+.modal-freemium .modal-title  { font-weight: 700; }
+.modal-freemium .modal-dialog { max-width: 640px; }
+
 /* Hint text */
 .hint { color: #6b7785; font-size: 13px; }
 

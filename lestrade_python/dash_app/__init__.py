@@ -32,7 +32,10 @@ def create_dash_app() -> dash.Dash:
         "<head>\n"
         "    <meta http-equiv='Content-Security-Policy' "
         "content=\"default-src 'self' 'unsafe-inline' 'unsafe-eval' "
-        "cdn.jsdelivr.net cdn.plot.ly; img-src 'self' data:;\">\n"
+        "cdn.jsdelivr.net cdn.plot.ly; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https: http://localhost:* http://127.0.0.1:*; "
+        "worker-src 'self' blob:;\">\n"
         "    <meta http-equiv='X-Frame-Options' content='SAMEORIGIN'>\n"
         "    <meta http-equiv='Referrer-Policy' content='no-referrer'>\n",
     )

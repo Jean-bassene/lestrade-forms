@@ -81,6 +81,7 @@ def freemium_modal() -> dbc.Modal:
         is_open=False,
         backdrop=True,
         keyboard=True,
+        className="modal-freemium",
         children=[
             dbc.ModalHeader(dbc.ModalTitle("Lestrade Forms"), close_button=True),
             dbc.ModalBody([
