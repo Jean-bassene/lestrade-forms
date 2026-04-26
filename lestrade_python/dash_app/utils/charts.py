@@ -168,6 +168,31 @@ def radar_chart(
     return fig
 
 
+def boxplot_chart(
+    values_by_group: dict[str, list[float]],
+    title: str = "",
+) -> go.Figure:
+    """Boîte à moustaches, une trace par groupe."""
+    if not values_by_group:
+        return empty_fig()
+    fig = go.Figure()
+    for i, (name, vals) in enumerate(values_by_group.items()):
+        fig.add_trace(go.Box(
+            y=vals,
+            name=_s(name),
+            marker_color=PALETTE[i % len(PALETTE)],
+            boxpoints="outliers",
+            hovertemplate="%{y}<extra>%{fullData.name}</extra>",
+        ))
+    fig.update_layout(
+        **_LAYOUT_BASE,
+        title=dict(text=_s(title), x=0.02, font=dict(size=14)),
+        yaxis=dict(title="Valeur"),
+        showlegend=True,
+    )
+    return fig
+
+
 def parse_response_values(
     reponses: list[dict],
     question_id: str | int,

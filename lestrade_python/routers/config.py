@@ -12,7 +12,7 @@ from ..core.schemas import ConfigIn, ConfigOut
 router = APIRouter(prefix="/config", tags=["config"])
 
 # Clés autorisées — whitelist stricte (évite key injection)
-_ALLOWED_KEYS = {"user_email", "welcome_shown", "theme", "panier_url"}
+_ALLOWED_KEYS = {"user_email", "welcome_shown", "theme", "panier_url", "anthropic_api_key"}
 
 
 def _check_key(key: str) -> None:

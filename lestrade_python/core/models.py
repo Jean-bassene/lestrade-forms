@@ -13,6 +13,7 @@ class Questionnaire(Base):
     id:            Mapped[int]          = mapped_column(Integer, primary_key=True, autoincrement=True)
     nom:           Mapped[str]          = mapped_column(String, nullable=False)
     description:   Mapped[str | None]   = mapped_column(Text)
+    owner_email:   Mapped[str | None]   = mapped_column(String)   # NULL = visible par tous
     date_creation: Mapped[datetime]     = mapped_column(DateTime, server_default=func.now())
 
     sections:  Mapped[list["Section"]]  = relationship(back_populates="questionnaire", cascade="all, delete")
@@ -64,3 +65,20 @@ class Config(Base):
 
     key:   Mapped[str]        = mapped_column(String, primary_key=True)
     value: Mapped[str | None] = mapped_column(Text)
+
+
+class LicenceRequest(Base):
+    """Demande de licence soumise depuis l'onglet Plan."""
+    __tablename__ = "licence_requests"
+
+    id:               Mapped[int]        = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nom:              Mapped[str]        = mapped_column(String, nullable=False)
+    email:            Mapped[str]        = mapped_column(String, nullable=False)
+    formule:          Mapped[str]        = mapped_column(String, nullable=False)   # "mensuel" | "annuel"
+    promo_code:       Mapped[str | None] = mapped_column(String)
+    promo_discount:   Mapped[int | None] = mapped_column(Integer)
+    statut:           Mapped[str]        = mapped_column(String, default="en_attente")  # en_attente | validé | refusé
+    cle:              Mapped[str | None] = mapped_column(String)
+    num_recu:         Mapped[str | None] = mapped_column(String)
+    date_demande:     Mapped[datetime]   = mapped_column(DateTime, server_default=func.now())
+    date_validation:  Mapped[datetime | None] = mapped_column(DateTime)

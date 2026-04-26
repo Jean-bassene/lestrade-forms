@@ -3,6 +3,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/questionnaire.dart';
 import '../models/reponse.dart';
 import '../services/db_service.dart';
@@ -65,16 +66,20 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
 
   Future<void> _deleteReponse(Reponse r) async {
     if (r.id == null) return;
+    final l10n = AppLocalizations.of(context)!;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer ?'),
-        content: const Text('Supprimer cette réponse localement ?'),
+        title: Text(l10n.deleteQuestion),
+        content: Text(l10n.deleteResponseConfirm),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -87,9 +92,10 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Réponses'),
+        title: Text(l10n.responsesTitle),
         actions: [
           if (_syncing)
             const Padding(
@@ -103,7 +109,7 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
             IconButton(
               icon: const Icon(Icons.cloud_upload),
               onPressed: _sync,
-              tooltip: 'Synchroniser',
+              tooltip: l10n.synchronize,
             ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -113,18 +119,17 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
       ),
       body: Column(
         children: [
-          // ── Sélecteur de questionnaire ─────────────────────────────
           if (_quests.isNotEmpty)
             Container(
               color: Colors.grey.shade100,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: DropdownButtonFormField<Questionnaire>(
                 value: _selected,
-                decoration: const InputDecoration(
-                  labelText: 'Questionnaire',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.questionnaire,
+                  border: const OutlineInputBorder(),
                   contentPadding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
                 items: _quests
                     .map((q) => DropdownMenuItem(value: q, child: Text(q.nom)))
@@ -136,19 +141,18 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
               ),
             ),
 
-          // ── Liste ─────────────────────────────────────────────────
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _reponses.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.inbox, size: 64, color: Colors.grey),
-                            SizedBox(height: 12),
-                            Text('Aucune réponse',
-                                style: TextStyle(color: Colors.grey)),
+                            const Icon(Icons.inbox, size: 64, color: Colors.grey),
+                            const SizedBox(height: 12),
+                            Text(l10n.noResponses,
+                                style: const TextStyle(color: Colors.grey)),
                           ],
                         ),
                       )
@@ -162,34 +166,24 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
                             return Card(
                               child: ListTile(
                                 leading: Icon(
-                                  r.syncPending
-                                      ? Icons.schedule
-                                      : Icons.check_circle,
-                                  color: r.syncPending
-                                      ? Colors.orange
-                                      : Colors.green,
+                                  r.syncPending ? Icons.schedule : Icons.check_circle,
+                                  color: r.syncPending ? Colors.orange : Colors.green,
                                 ),
                                 title: Text(
-                                  r.horodateur != null
-                                      ? _formatDate(r.horodateur!)
-                                      : 'Réponse ${i + 1}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600),
+                                  r.horodateur.isNotEmpty
+                                      ? _formatDate(r.horodateur)
+                                      : l10n.responseNumber(i + 1),
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
                                 ),
                                 subtitle: Text(
-                                  r.syncPending
-                                      ? 'En attente de synchronisation'
-                                      : 'Synchronisée',
+                                  r.syncPending ? l10n.pendingSync : l10n.synced,
                                   style: TextStyle(
-                                    color: r.syncPending
-                                        ? Colors.orange
-                                        : Colors.green,
+                                    color: r.syncPending ? Colors.orange : Colors.green,
                                     fontSize: 12,
                                   ),
                                 ),
                                 trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline,
-                                      color: Colors.red),
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red),
                                   onPressed: () => _deleteReponse(r),
                                 ),
                                 onTap: () => _showDetails(r),
@@ -206,6 +200,7 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
 
   Future<void> _markAsResend(Reponse r) async {
     if (r.id == null) return;
+    final l10n = AppLocalizations.of(context)!;
     final d = await DbService.db;
     await d.rawUpdate(
       'UPDATE reponses SET sync_pending = 1 WHERE id = ?',
@@ -216,14 +211,15 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
     await _loadReponses();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Réponse marquée à renvoyer'),
+      SnackBar(
+        content: Text(l10n.markedForResend),
         backgroundColor: Colors.orange,
       ),
     );
   }
 
   void _showDetails(Reponse r) {
+    final l10n = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -244,11 +240,10 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
-                  // Bouton renvoyer uniquement si déjà synchronisée
                   if (!r.syncPending)
                     TextButton.icon(
                       icon: const Icon(Icons.replay, size: 16),
-                      label: const Text('Renvoyer'),
+                      label: Text(l10n.resend),
                       style: TextButton.styleFrom(foregroundColor: Colors.orange),
                       onPressed: () => _markAsResend(r),
                     ),
@@ -263,7 +258,7 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    r.syncPending ? 'En attente' : 'Synchronisée',
+                    r.syncPending ? l10n.pending : l10n.synced,
                     style: TextStyle(
                       fontSize: 12,
                       color: r.syncPending ? Colors.orange : Colors.green,
@@ -280,8 +275,7 @@ class _ReponsesScreenState extends State<ReponsesScreen> {
                             dense: true,
                             title: Text(e.key,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12)),
+                                    fontWeight: FontWeight.bold, fontSize: 12)),
                             subtitle: Text(
                               e.value?.toString() ?? '—',
                               style: const TextStyle(fontSize: 13),

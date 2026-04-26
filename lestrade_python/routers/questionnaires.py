@@ -3,7 +3,7 @@ Endpoints questionnaires — Flutter-compatible + CRUD Desktop
 """
 import binascii
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import get_db
@@ -88,10 +88,18 @@ async def _build_full(db: AsyncSession, quest_id: int) -> QuestionnaireFullOut |
 # ── GET /questionnaires ───────────────────────────────────────────────────────
 
 @router.get("", response_model=list[QuestionnaireOut])
-async def list_questionnaires(db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(
-        select(Questionnaire).order_by(Questionnaire.date_creation.desc())
-    )).scalars().all()
+async def list_questionnaires(owner_email: str | None = None,
+                              db: AsyncSession = Depends(get_db)):
+    """Retourne les questionnaires visibles pour cet utilisateur :
+    les siens (owner_email correspond) + ceux sans propriétaire (héritage)."""
+    stmt = select(Questionnaire).order_by(Questionnaire.date_creation.desc())
+    if owner_email:
+        email = owner_email.strip().lower()
+        stmt = stmt.where(
+            or_(Questionnaire.owner_email == email,
+                Questionnaire.owner_email.is_(None))
+        )
+    rows = (await db.execute(stmt)).scalars().all()
 
     result = []
     for q in rows:
@@ -110,7 +118,8 @@ async def list_questionnaires(db: AsyncSession = Depends(get_db)):
 
 @router.post("", response_model=QuestionnaireOut, status_code=201)
 async def create_questionnaire(body: QuestionnaireIn, db: AsyncSession = Depends(get_db)):
-    q = Questionnaire(nom=body.nom, description=body.description)
+    owner = (body.owner_email or "").strip().lower() or None
+    q = Questionnaire(nom=body.nom, description=body.description, owner_email=owner)
     db.add(q)
     await db.commit()
     await db.refresh(q)
@@ -135,17 +144,7 @@ async def delete_questionnaire(quest_id: int, db: AsyncSession = Depends(get_db)
     await db.commit()
 
 
-# ── GET /questionnaires/{id} ──────────────────────────────────────────────────
-
-@router.get("/{quest_id}", response_model=QuestionnaireFullOut)
-async def get_questionnaire(quest_id: int, db: AsyncSession = Depends(get_db)):
-    full = await _build_full(db, quest_id)
-    if not full:
-        raise HTTPException(status_code=404, detail="Questionnaire non trouvé")
-    return full
-
-
-# ── GET /questionnaires/uid/{uid} ─────────────────────────────────────────────
+# ── GET /questionnaires/uid/{uid} — doit être avant /{quest_id} (int) ─────────
 
 @router.get("/uid/{uid}", response_model=QuestionnaireFullOut)
 async def get_questionnaire_by_uid(uid: str, db: AsyncSession = Depends(get_db)):
@@ -156,3 +155,13 @@ async def get_questionnaire_by_uid(uid: str, db: AsyncSession = Depends(get_db))
             if full:
                 return full
     raise HTTPException(status_code=404, detail=f"UID {uid} introuvable")
+
+
+# ── GET /questionnaires/{id} ──────────────────────────────────────────────────
+
+@router.get("/{quest_id}", response_model=QuestionnaireFullOut)
+async def get_questionnaire(quest_id: int, db: AsyncSession = Depends(get_db)):
+    full = await _build_full(db, quest_id)
+    if not full:
+        raise HTTPException(status_code=404, detail="Questionnaire non trouvé")
+    return full

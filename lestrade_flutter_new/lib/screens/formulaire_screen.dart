@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'dart:math';
+import '../l10n/app_localizations.dart';
 import '../models/questionnaire.dart';
 import '../models/reponse.dart';
 import '../services/db_service.dart';
@@ -37,7 +38,6 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
   GpsResult? _gpsResult;
   bool _gpsLoading = true;
 
-  // Stocker les réponses : clé = "q_<id>"
   final Map<String, dynamic> _answers = {};
 
   @override
@@ -59,12 +59,12 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
 
   Future<void> _submit() async {
     if (_full == null) return;
+    final l10n = AppLocalizations.of(context)!;
 
-    // Vérifier les champs obligatoires
     final missing = <String>[];
     for (final q in _full!.questions) {
       if (q.obligatoire) {
-        final val = _answers['q_${q.id}'];
+        final val = _answers['${q.id}'];
         if (val == null || val.toString().trim().isEmpty ||
             (val is List && val.isEmpty)) {
           missing.add(q.texte);
@@ -75,7 +75,7 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
     if (missing.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Champs requis : ${missing.take(3).join(', ')}'),
+          content: Text(l10n.requiredFields(missing.take(3).join(', '))),
           backgroundColor: Colors.orange,
         ),
       );
@@ -85,10 +85,9 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
     setState(() => _saving = true);
     try {
       final donnees = Map<String, dynamic>.from(_answers);
-      // Ajouter coordonnées GPS si disponibles
       if (_gpsResult != null && _gpsResult!.hasPosition) {
-        donnees['_latitude']  = _gpsResult!.latitude;
-        donnees['_longitude'] = _gpsResult!.longitude;
+        donnees['_latitude']     = _gpsResult!.latitude;
+        donnees['_longitude']    = _gpsResult!.longitude;
         donnees['_gps_accuracy'] = _gpsResult!.accuracy;
       }
 
@@ -103,12 +102,11 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Réponse enregistrée (offline)'),
+          SnackBar(
+            content: Text(l10n.responseSavedOffline),
             backgroundColor: Colors.green,
           ),
         );
-        // Remettre à zéro pour une nouvelle saisie
         setState(() { _answers.clear(); _saving = false; });
       }
     } catch (e) {
@@ -123,13 +121,15 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (_full == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Formulaire')),
-        body: const Center(child: Text('Questionnaire introuvable')),
+        appBar: AppBar(title: Text(l10n.formTitle)),
+        body: Center(child: Text(l10n.surveyNotFound)),
       );
     }
 
@@ -137,36 +137,35 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
       appBar: AppBar(
         title: Text(_full!.questionnaire.nom),
         actions: [
-          // ── Indicateur GPS ──
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: _gpsLoading
-                ? const Tooltip(
-                    message: 'Acquisition GPS...',
-                    child: Icon(Icons.gps_not_fixed, color: Colors.orange),
+                ? Tooltip(
+                    message: l10n.acquiringGps,
+                    child: const Icon(Icons.gps_not_fixed, color: Colors.orange),
                   )
                 : _gpsResult != null && _gpsResult!.hasPosition
                     ? Tooltip(
-                        message:
-                            'GPS acquis (±${_gpsResult!.accuracy?.toStringAsFixed(0)} m)',
-                        child:
-                            const Icon(Icons.gps_fixed, color: Colors.green),
+                        message: l10n.gpsAcquired(
+                          _gpsResult!.accuracy?.toStringAsFixed(0) ?? '?',
+                        ),
+                        child: const Icon(Icons.gps_fixed, color: Colors.green),
                       )
-                    : const Tooltip(
-                        message: 'GPS indisponible',
-                        child: Icon(Icons.gps_off, color: Colors.grey),
+                    : Tooltip(
+                        message: l10n.gpsUnavailable,
+                        child: const Icon(Icons.gps_off, color: Colors.grey),
                       ),
           ),
           IconButton(
             icon: const Icon(Icons.check),
             onPressed: _saving ? null : _submit,
-            tooltip: 'Enregistrer',
+            tooltip: l10n.save,
           )
         ],
       ),
       body: _saving
           ? const Center(child: CircularProgressIndicator())
-          : _buildForm(),
+          : _buildForm(l10n),
       bottomNavigationBar: Padding(
         padding: EdgeInsets.only(
           left: 16,
@@ -176,14 +175,14 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
         ),
         child: ElevatedButton.icon(
           icon: const Icon(Icons.save),
-          label: const Text('Enregistrer la réponse'),
+          label: Text(l10n.saveResponse),
           onPressed: _saving ? null : _submit,
         ),
       ),
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildForm(AppLocalizations l10n) {
     final sections = _full!.sections;
     final questions = _full!.questions;
 
@@ -218,14 +217,14 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            ...sectionQuestions.map((q) => _buildQuestion(q)),
+            ...sectionQuestions.map((q) => _buildQuestion(q, l10n)),
           ],
         );
       },
     );
   }
 
-  Widget _buildQuestion(Question q) {
+  Widget _buildQuestion(Question q, AppLocalizations l10n) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
@@ -247,19 +246,17 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
               ],
             ),
             const SizedBox(height: 10),
-            _buildInput(q),
+            _buildInput(q, l10n),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInput(Question q) {
-    // Clé sans préfixe pour compatibilité avec le format Desktop (parse_reponses_to_wide)
+  Widget _buildInput(Question q, AppLocalizations l10n) {
     final key = '${q.id}';
 
     switch (q.type) {
-      // ── Texte ────────────────────────────────────────────────────────
       case 'text':
       case 'email':
       case 'phone':
@@ -267,9 +264,9 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
           decoration: InputDecoration(
             border: const OutlineInputBorder(),
             hintText: q.type == 'email'
-                ? 'exemple@email.com'
+                ? l10n.emailHint
                 : q.type == 'phone'
-                    ? '+243...'
+                    ? l10n.phoneHint
                     : null,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -287,13 +284,11 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
           maxLines: 4,
           decoration: const InputDecoration(
             border: OutlineInputBorder(),
-            contentPadding:
-                EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
           onChanged: (v) => _answers[key] = v,
         );
 
-      // ── Date ─────────────────────────────────────────────────────────
       case 'date':
         final currentVal = _answers[key] as String?;
         return InkWell(
@@ -306,8 +301,7 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
             );
             if (picked != null && mounted) {
               setState(() {
-                _answers[key] =
-                    picked.toIso8601String().substring(0, 10);
+                _answers[key] = picked.toIso8601String().substring(0, 10);
               });
             }
           },
@@ -315,11 +309,10 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               suffixIcon: Icon(Icons.calendar_today),
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
             child: Text(
-              currentVal ?? 'Sélectionner une date',
+              currentVal ?? l10n.selectDate,
               style: TextStyle(
                 color: currentVal != null ? Colors.black87 : Colors.grey,
               ),
@@ -327,13 +320,12 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
           ),
         );
 
-      // ── Choix unique (radio) ──────────────────────────────────────────
       case 'radio':
       case 'dropdown':
         final opts = q.parsedOptions;
         if (opts.isEmpty) {
-          return const Text('(aucune option définie)',
-              style: TextStyle(color: Colors.grey));
+          return Text(l10n.noOptionsDefined,
+              style: const TextStyle(color: Colors.grey));
         }
         if (q.type == 'dropdown') {
           return DropdownButtonFormField<String>(
@@ -345,7 +337,6 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
             onChanged: (v) => setState(() => _answers[key] = v),
           );
         }
-        // Radio
         final current = _answers[key] as String?;
         return Column(
           children: opts
@@ -360,15 +351,13 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
               .toList(),
         );
 
-      // ── Choix multiples (checkbox) ────────────────────────────────────
       case 'checkbox':
         final opts = q.parsedOptions;
         if (opts.isEmpty) {
-          return const Text('(aucune option définie)',
-              style: TextStyle(color: Colors.grey));
+          return Text(l10n.noOptionsDefined,
+              style: const TextStyle(color: Colors.grey));
         }
-        final selected =
-            ((_answers[key] as List<String>?) ?? <String>[]);
+        final selected = ((_answers[key] as List<String>?) ?? <String>[]);
         return Column(
           children: opts
               .map((o) => CheckboxListTile(
@@ -378,8 +367,7 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
                     activeColor: const Color(0xFF003366),
                     onChanged: (checked) {
                       setState(() {
-                        final list =
-                            List<String>.from(_answers[key] ?? []);
+                        final list = List<String>.from(_answers[key] ?? []);
                         if (checked == true) {
                           list.add(o);
                         } else {
@@ -392,26 +380,23 @@ class _FormulaireScreenState extends State<FormulaireScreen> {
               .toList(),
         );
 
-      // ── Likert ───────────────────────────────────────────────────────
       case 'likert':
         final current = _answers[key] as int?;
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: List.generate(5, (i) {
             final val = i + 1;
-            final selected = current == val;
+            final sel = current == val;
             return GestureDetector(
               onTap: () => setState(() => _answers[key] = val),
               child: CircleAvatar(
                 radius: 20,
-                backgroundColor: selected
-                    ? const Color(0xFFF59E0B)
-                    : Colors.grey.shade200,
+                backgroundColor: sel ? const Color(0xFFF59E0B) : Colors.grey.shade200,
                 child: Text(
                   '$val',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: selected ? Colors.white : Colors.black54,
+                    color: sel ? Colors.white : Colors.black54,
                   ),
                 ),
               ),

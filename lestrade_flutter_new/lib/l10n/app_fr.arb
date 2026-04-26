@@ -1,0 +1,138 @@
+{
+  "@@locale": "fr",
+
+  "appTitle": "Lestrade Forms",
+  "refresh": "Actualiser",
+  "cancel": "Annuler",
+  "delete": "Supprimer",
+  "save": "Enregistrer",
+  "ok": "OK",
+  "import": "Importer",
+  "synchronize": "Synchroniser",
+  "language": "Langue",
+
+  "navHome": "Accueil",
+  "navSurveys": "Enquêtes",
+  "navResponses": "Réponses",
+  "navScanner": "Scanner",
+  "navSettings": "Paramètres",
+
+  "statusChecking": "Vérification...",
+  "statusWifi": "WiFi connecté",
+  "statusBasket": "Mode panier — fonctionne sur tout réseau",
+  "statusOffline": "Non connecté — scannez un QR pour configurer",
+  "scanQrToStart": "Scannez un QR de questionnaire pour démarrer",
+
+  "labelSurveys": "Enquêtes",
+  "labelPending": "En attente",
+  "quickActions": "Actions rapides",
+  "syncResponses": "Synchroniser les réponses",
+  "pendingToSend": "{count} réponse(s) offline à envoyer",
+  "@pendingToSend": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "allSynced": "Tout est synchronisé",
+  "downloadSurveys": "Télécharger les enquêtes",
+  "downloadFromWifi": "Récupère la liste depuis le serveur WiFi",
+  "useQrScanner": "Utilisez le Scanner QR (pas de WiFi)",
+  "newEntry": "Nouvelle saisie",
+  "fillForm": "Remplir un formulaire",
+  "surveysDownloaded": "{count} questionnaire(s) téléchargé(s)",
+  "@surveysDownloaded": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noConnection": "Pas de connexion — vérifiez le réseau WiFi ou le panier",
+
+  "surveysTitle": "Enquêtes",
+  "noSurveysAvailable": "Aucune enquête disponible",
+  "scanOrDownload": "Scannez un QR code ou téléchargez\ndepuis l'accueil",
+  "deleteQuestion": "Supprimer ?",
+  "deleteSurveyConfirm": "Supprimer \"{name}\" et ses réponses offline ?",
+  "@deleteSurveyConfirm": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "sectionQuestionCount": "{sections} section(s) • {questions} question(s)",
+  "@sectionQuestionCount": {
+    "placeholders": {
+      "sections": { "type": "int" },
+      "questions": { "type": "int" }
+    }
+  },
+
+  "responsesTitle": "Réponses",
+  "questionnaire": "Questionnaire",
+  "noResponses": "Aucune réponse",
+  "deleteResponseConfirm": "Supprimer cette réponse localement ?",
+  "pendingSync": "En attente de synchronisation",
+  "synced": "Synchronisée",
+  "pending": "En attente",
+  "resend": "Renvoyer",
+  "markedForResend": "Réponse marquée à renvoyer",
+  "responseNumber": "Réponse {number}",
+  "@responseNumber": {
+    "placeholders": { "number": { "type": "int" } }
+  },
+
+  "scannerTitle": "Scanner",
+  "enterUidManuallyTooltip": "Saisir UID manuellement",
+  "scanSurveyQr": "Scanner un QR code de questionnaire",
+  "qrShownInDesktop": "Le QR code est affiché dans l'application Desktop",
+  "startScanner": "Démarrer le scanner",
+  "enterUidManually": "Saisir un UID manuellement",
+  "serverConfigured": "Serveur configuré",
+  "serverAddressSaved": "L'adresse du serveur a été enregistrée automatiquement.",
+  "surveyDetected": "Questionnaire détecté",
+  "importSurveyQuestion": "Voulez-vous importer ce questionnaire depuis le serveur ?",
+  "uidLabel": "UID : {uid}",
+  "@uidLabel": {
+    "placeholders": { "uid": { "type": "String" } }
+  },
+  "importing": "Importation en cours...",
+  "surveyImported": "Questionnaire \"{name}\" importé !",
+  "@surveyImported": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "enter": "Saisir",
+  "importError": "Erreur lors de l'importation : {error}",
+  "@importError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "uidNotFound": "UID introuvable dans le QR",
+  "qrNotRecognized": "QR code non reconnu",
+  "enterUidTitle": "Saisir un UID",
+  "stopScanner": "Arrêter",
+  "pointCameraAtQr": "Pointez la caméra sur le QR code",
+
+  "settingsTitle": "Paramètres",
+  "serverConnection": "Connexion serveur",
+  "notConfigured": "Non configuré — scannez le QR du coordinateur",
+  "testConnection": "Tester la connexion",
+  "serverAccessible": "Serveur accessible !",
+  "cannotReachServer": "Impossible de joindre le serveur",
+  "configureManually": "Configurer manuellement",
+  "coordinatorIpHelper": "IP du PC coordinateur (port 8765 ajouté auto)",
+  "addressSaved": "Adresse enregistrée",
+  "aboutTitle": "À propos",
+  "aboutDesc": "Lestrade Forms — Application de collecte terrain",
+  "version": "Version 1.2.0",
+  "aboutFeatures": "Collecte offline · Sync réseau local · Analyse Desktop",
+
+  "formTitle": "Formulaire",
+  "surveyNotFound": "Questionnaire introuvable",
+  "acquiringGps": "Acquisition GPS...",
+  "gpsAcquired": "GPS acquis (±{accuracy} m)",
+  "@gpsAcquired": {
+    "placeholders": { "accuracy": { "type": "String" } }
+  },
+  "gpsUnavailable": "GPS indisponible",
+  "responseSavedOffline": "Réponse enregistrée (offline)",
+  "requiredFields": "Champs requis : {fields}",
+  "@requiredFields": {
+    "placeholders": { "fields": { "type": "String" } }
+  },
+  "saveResponse": "Enregistrer la réponse",
+  "selectDate": "Sélectionner une date",
+  "noOptionsDefined": "(aucune option définie)",
+  "emailHint": "exemple@email.com",
+  "phoneHint": "+243..."
+}

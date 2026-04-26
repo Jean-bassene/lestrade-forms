@@ -1,0 +1,138 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Lestrade Forms",
+  "refresh": "Refresh",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "save": "Save",
+  "ok": "OK",
+  "import": "Import",
+  "synchronize": "Sync",
+  "language": "Language",
+
+  "navHome": "Home",
+  "navSurveys": "Surveys",
+  "navResponses": "Responses",
+  "navScanner": "Scanner",
+  "navSettings": "Settings",
+
+  "statusChecking": "Checking...",
+  "statusWifi": "WiFi connected",
+  "statusBasket": "Basket mode — works on any network",
+  "statusOffline": "Not connected — scan a QR to configure",
+  "scanQrToStart": "Scan a survey QR code to get started",
+
+  "labelSurveys": "Surveys",
+  "labelPending": "Pending",
+  "quickActions": "Quick actions",
+  "syncResponses": "Sync responses",
+  "pendingToSend": "{count} offline response(s) to send",
+  "@pendingToSend": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "allSynced": "Everything is synced",
+  "downloadSurveys": "Download surveys",
+  "downloadFromWifi": "Fetches list from WiFi server",
+  "useQrScanner": "Use QR Scanner (no WiFi)",
+  "newEntry": "New entry",
+  "fillForm": "Fill a form",
+  "surveysDownloaded": "{count} survey(s) downloaded",
+  "@surveysDownloaded": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noConnection": "No connection — check WiFi or basket",
+
+  "surveysTitle": "Surveys",
+  "noSurveysAvailable": "No surveys available",
+  "scanOrDownload": "Scan a QR code or download\nfrom home",
+  "deleteQuestion": "Delete?",
+  "deleteSurveyConfirm": "Delete \"{name}\" and its offline responses?",
+  "@deleteSurveyConfirm": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "sectionQuestionCount": "{sections} section(s) • {questions} question(s)",
+  "@sectionQuestionCount": {
+    "placeholders": {
+      "sections": { "type": "int" },
+      "questions": { "type": "int" }
+    }
+  },
+
+  "responsesTitle": "Responses",
+  "questionnaire": "Survey",
+  "noResponses": "No responses",
+  "deleteResponseConfirm": "Delete this response locally?",
+  "pendingSync": "Pending sync",
+  "synced": "Synced",
+  "pending": "Pending",
+  "resend": "Resend",
+  "markedForResend": "Response marked for resend",
+  "responseNumber": "Response {number}",
+  "@responseNumber": {
+    "placeholders": { "number": { "type": "int" } }
+  },
+
+  "scannerTitle": "Scanner",
+  "enterUidManuallyTooltip": "Enter UID manually",
+  "scanSurveyQr": "Scan a survey QR code",
+  "qrShownInDesktop": "QR code is shown in the Desktop app",
+  "startScanner": "Start scanner",
+  "enterUidManually": "Enter a UID manually",
+  "serverConfigured": "Server configured",
+  "serverAddressSaved": "Server address saved automatically.",
+  "surveyDetected": "Survey detected",
+  "importSurveyQuestion": "Do you want to import this survey from the server?",
+  "uidLabel": "UID: {uid}",
+  "@uidLabel": {
+    "placeholders": { "uid": { "type": "String" } }
+  },
+  "importing": "Importing...",
+  "surveyImported": "Survey \"{name}\" imported!",
+  "@surveyImported": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "enter": "Fill",
+  "importError": "Import error: {error}",
+  "@importError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "uidNotFound": "UID not found in QR",
+  "qrNotRecognized": "QR code not recognized",
+  "enterUidTitle": "Enter a UID",
+  "stopScanner": "Stop",
+  "pointCameraAtQr": "Point camera at QR code",
+
+  "settingsTitle": "Settings",
+  "serverConnection": "Server connection",
+  "notConfigured": "Not configured — scan coordinator's QR",
+  "testConnection": "Test connection",
+  "serverAccessible": "Server accessible!",
+  "cannotReachServer": "Cannot reach server",
+  "configureManually": "Configure manually",
+  "coordinatorIpHelper": "Coordinator PC IP (port 8765 added automatically)",
+  "addressSaved": "Address saved",
+  "aboutTitle": "About",
+  "aboutDesc": "Lestrade Forms — Field data collection app",
+  "version": "Version 1.2.0",
+  "aboutFeatures": "Offline collection · Local sync · Desktop analysis",
+
+  "formTitle": "Form",
+  "surveyNotFound": "Survey not found",
+  "acquiringGps": "Acquiring GPS...",
+  "gpsAcquired": "GPS acquired (±{accuracy} m)",
+  "@gpsAcquired": {
+    "placeholders": { "accuracy": { "type": "String" } }
+  },
+  "gpsUnavailable": "GPS unavailable",
+  "responseSavedOffline": "Response saved (offline)",
+  "requiredFields": "Required fields: {fields}",
+  "@requiredFields": {
+    "placeholders": { "fields": { "type": "String" } }
+  },
+  "saveResponse": "Save response",
+  "selectDate": "Select a date",
+  "noOptionsDefined": "(no options defined)",
+  "emailHint": "example@email.com",
+  "phoneHint": "+1..."
+}

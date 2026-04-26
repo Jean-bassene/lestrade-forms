@@ -3,6 +3,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
 import '../services/db_service.dart';
 import '../services/sync_service.dart';
@@ -60,12 +61,13 @@ class _AccueilScreenState extends State<AccueilScreen> {
   }
 
   Future<void> _downloadQuests() async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       final count = await SyncService.downloadQuestionnaires();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$count questionnaire(s) téléchargé(s)'),
+          content: Text(l10n.surveysDownloaded(count)),
           backgroundColor: Colors.green,
         ),
       );
@@ -73,7 +75,7 @@ class _AccueilScreenState extends State<AccueilScreen> {
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().contains('inaccessible') || e.toString().contains('SocketException')
-          ? 'Pas de connexion — vérifiez le réseau WiFi ou le panier'
+          ? l10n.noConnection
           : 'Erreur : $e';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: Colors.red),
@@ -83,14 +85,15 @@ class _AccueilScreenState extends State<AccueilScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lestrade Forms'),
+        title: Text(l10n.appTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refresh,
-            tooltip: 'Actualiser',
+            tooltip: l10n.refresh,
           )
         ],
       ),
@@ -99,7 +102,6 @@ class _AccueilScreenState extends State<AccueilScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ── Statut serveur ──────────────────────────────────────────
             _StatusCard(
               checking: _checking,
               online: _serverOnline,
@@ -108,13 +110,12 @@ class _AccueilScreenState extends State<AccueilScreen> {
             ),
             const SizedBox(height: 12),
 
-            // ── Statistiques ────────────────────────────────────────────
             Row(
               children: [
                 Expanded(
                   child: _StatCard(
                     icon: Icons.list_alt,
-                    label: 'Enquêtes',
+                    label: l10n.labelSurveys,
                     value: '$_questCount',
                     color: const Color(0xFF003366),
                   ),
@@ -123,20 +124,17 @@ class _AccueilScreenState extends State<AccueilScreen> {
                 Expanded(
                   child: _StatCard(
                     icon: Icons.sync,
-                    label: 'En attente',
+                    label: l10n.labelPending,
                     value: '$_pendingCount',
-                    color: _pendingCount > 0
-                        ? Colors.orange
-                        : Colors.green,
+                    color: _pendingCount > 0 ? Colors.orange : Colors.green,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 20),
 
-            // ── Actions rapides ─────────────────────────────────────────
             Text(
-              'Actions rapides',
+              l10n.quickActions,
               style: Theme.of(context)
                   .textTheme
                   .titleMedium
@@ -146,13 +144,11 @@ class _AccueilScreenState extends State<AccueilScreen> {
 
             _ActionButton(
               icon: Icons.cloud_upload,
-              label: 'Synchroniser les réponses',
+              label: l10n.syncResponses,
               subtitle: _pendingCount > 0
-                  ? '$_pendingCount réponse(s) offline à envoyer'
-                  : 'Tout est synchronisé',
-              color: _pendingCount > 0
-                  ? const Color(0xFFF59E0B)
-                  : Colors.grey,
+                  ? l10n.pendingToSend(_pendingCount)
+                  : l10n.allSynced,
+              color: _pendingCount > 0 ? const Color(0xFFF59E0B) : Colors.grey,
               enabled: (_serverOnline || _panierConfigured) && _pendingCount > 0,
               onTap: _sync,
             ),
@@ -160,10 +156,8 @@ class _AccueilScreenState extends State<AccueilScreen> {
 
             _ActionButton(
               icon: Icons.cloud_download,
-              label: 'Télécharger les enquêtes',
-              subtitle: _serverOnline
-                  ? 'Récupère la liste depuis le serveur WiFi'
-                  : 'Utilisez le Scanner QR (pas de WiFi)',
+              label: l10n.downloadSurveys,
+              subtitle: _serverOnline ? l10n.downloadFromWifi : l10n.useQrScanner,
               color: const Color(0xFF003366),
               enabled: _serverOnline,
               onTap: _downloadQuests,
@@ -172,14 +166,11 @@ class _AccueilScreenState extends State<AccueilScreen> {
 
             _ActionButton(
               icon: Icons.edit_note,
-              label: 'Nouvelle saisie',
-              subtitle: 'Remplir un formulaire',
+              label: l10n.newEntry,
+              subtitle: l10n.fillForm,
               color: Colors.teal,
               enabled: _questCount > 0,
-              onTap: () {
-                // Navigation vers onglet Enquêtes
-                // TODO: changer l'onglet via callback si besoin
-              },
+              onTap: () {},
             ),
           ],
         ),
@@ -205,24 +196,25 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final String label;
     final IconData icon;
     final Color color;
 
     if (checking) {
-      label = 'Vérification...';
+      label = l10n.statusChecking;
       icon = Icons.sync;
       color = Colors.orange;
     } else if (online) {
-      label = 'WiFi connecté';
+      label = l10n.statusWifi;
       icon = Icons.cloud_done;
       color = Colors.green;
     } else if (panierConfigured) {
-      label = 'Mode panier — fonctionne sur tout réseau';
+      label = l10n.statusBasket;
       icon = Icons.cloud_queue;
       color = Colors.blue;
     } else {
-      label = 'Non connecté — scannez un QR pour configurer';
+      label = l10n.statusOffline;
       icon = Icons.cloud_off;
       color = Colors.orange;
     }
@@ -238,10 +230,7 @@ class _StatusCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    label,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
                   if (online && url.isNotEmpty)
                     Text(
                       url,
@@ -250,7 +239,7 @@ class _StatusCard extends StatelessWidget {
                     )
                   else if (!online && !panierConfigured)
                     Text(
-                      'Scannez un QR de questionnaire pour démarrer',
+                      l10n.scanQrToStart,
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall
@@ -290,11 +279,7 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               value,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: color),
             ),
             Text(label, style: Theme.of(context).textTheme.bodySmall),
           ],

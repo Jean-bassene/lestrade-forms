@@ -26,13 +26,16 @@ def create_dash_app() -> dash.Dash:
 
     app.layout = build_layout()
 
-    # Sécurité headers via index_string
+    # Sécurité headers via index_string.
+    # unsafe-inline et unsafe-eval sont exigés par Dash/Plotly (scripts inline + eval dans Plotly).
     app.index_string = app.index_string.replace(
         "<head>",
         "<head>\n"
         "    <meta http-equiv='Content-Security-Policy' "
-        "content=\"default-src 'self' 'unsafe-inline' 'unsafe-eval' "
-        "cdn.jsdelivr.net cdn.plot.ly; "
+        "content=\"default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net cdn.plot.ly; "
+        "style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; "
+        "font-src 'self' cdn.jsdelivr.net; "
         "img-src 'self' data: https:; "
         "connect-src 'self' https: http://localhost:* http://127.0.0.1:*; "
         "worker-src 'self' blob:;\">\n"

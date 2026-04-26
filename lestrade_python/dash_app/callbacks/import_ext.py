@@ -71,6 +71,29 @@ def register(app):
         # Sanitise les noms de colonnes
         df.columns = [security.sanitize_text(str(c), 150) for c in df.columns]
 
+        # Déduplique (cellules fusionnées ou en-têtes répétées)
+        seen: dict[str, int] = {}
+        deduped = []
+        renamed = []
+        for col in df.columns:
+            if col in seen:
+                seen[col] += 1
+                new_col = f"{col}_{seen[col]}"
+                deduped.append(new_col)
+                renamed.append(f"« {col} » → « {new_col} »")
+            else:
+                seen[col] = 0
+                deduped.append(col)
+        df.columns = deduped
+
+        warn_msg = ""
+        if renamed:
+            warn_msg = (
+                f"⚠ {len(renamed)} colonne(s) dupliquée(s) renommée(s) automatiquement : "
+                + ", ".join(renamed[:5])
+                + (" …" if len(renamed) > 5 else "")
+            )
+
         # Sérialise pour le store
         data_json = df.head(500).to_json(orient="records")
         meta_json = json.dumps({
@@ -81,7 +104,7 @@ def register(app):
         })
 
         step2 = _build_step2(df)
-        return "", step2, {"display": "block"}, data_json, meta_json
+        return warn_msg, step2, {"display": "block"}, data_json, meta_json
 
     # ── Étape 3 — import final ────────────────────────────────────────────────
 

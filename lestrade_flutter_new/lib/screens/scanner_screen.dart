@@ -5,6 +5,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
 import '../services/db_service.dart';
 import '../services/sync_service.dart';
@@ -77,6 +78,7 @@ class _ScannerScreenState extends State<ScannerScreen>
   }
 
   Future<void> _processPayload(String payload) async {
+    final l10n = AppLocalizations.of(context)!;
     setState(() => _lastResult = payload);
 
     // 1. QR de connexion API : lestrade://192.168.1.x:8765
@@ -89,7 +91,7 @@ class _ScannerScreenState extends State<ScannerScreen>
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Serveur configuré'),
+            title: Text(l10n.serverConfigured),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -97,13 +99,13 @@ class _ScannerScreenState extends State<ScannerScreen>
                 const SizedBox(height: 12),
                 Text(url, style: const TextStyle(fontFamily: 'monospace')),
                 const SizedBox(height: 8),
-                const Text('L\'adresse du serveur a été enregistrée automatiquement.'),
+                Text(l10n.serverAddressSaved),
               ],
             ),
             actions: [
               ElevatedButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('OK'),
+                child: Text(l10n.ok),
               ),
             ],
           ),
@@ -112,7 +114,7 @@ class _ScannerScreenState extends State<ScannerScreen>
       }
     }
 
-    // 2. QR questionnaire JSON : {"v":"1.0","uid":"LEST-...","ip":"192.168.x.x","port":8765,...}
+    // 2. QR questionnaire JSON
     if (payload.startsWith('{')) {
       try {
         final Map<String, dynamic> meta = Map<String, dynamic>.from(
@@ -122,63 +124,64 @@ class _ScannerScreenState extends State<ScannerScreen>
         final ip  = meta['ip']?.toString()  ?? '';
         final port = meta['port'] is int ? meta['port'] as int : 8765;
 
-        // QR v2 : panier_url → sync sur tout réseau
         final panierUrl = meta['panier_url']?.toString() ?? '';
         if (panierUrl.isNotEmpty) {
           await SyncService.setPanierUrl(panierUrl);
         }
 
-        // QR v1 : ip → configurer le serveur WiFi local
+        final coordinatorEmail = meta['coordinator_email']?.toString() ?? '';
+        if (coordinatorEmail.isNotEmpty) {
+          await SyncService.setCoordinatorEmail(coordinatorEmail);
+        }
+
         if (ip.isNotEmpty && ip != '127.0.0.1') {
           final serverUrl = 'http://$ip:$port';
           await ApiService.setBaseUrl(serverUrl);
         }
 
-        if (uid.isEmpty) { _showError('UID introuvable dans le QR'); return; }
+        if (uid.isEmpty) { _showError(l10n.uidNotFound); return; }
         _showImportDialog(uid, panierUrl: panierUrl.isNotEmpty ? panierUrl : null);
         return;
-      } catch (_) {
-        // pas du JSON valide → continuer vers détection UID
-      }
+      } catch (_) {}
     }
 
     // 3. UID seul (ancien format) : LEST-XXXX-XXXX
     final uidMatch = RegExp(r'LEST-[A-Z0-9]{4}-[A-Z0-9]{4}').firstMatch(payload);
     if (uidMatch == null) {
-      _showError('QR code non reconnu');
+      _showError(l10n.qrNotRecognized);
       return;
     }
 
-    final uid = uidMatch.group(0)!;
-    _showImportDialog(uid);
+    _showImportDialog(uidMatch.group(0)!);
   }
 
   void _showImportDialog(String uid, {String? panierUrl}) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Questionnaire détecté'),
+        title: Text(l10n.surveyDetected),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('UID : $uid'),
+            Text(l10n.uidLabel(uid)),
             const SizedBox(height: 8),
-            const Text('Voulez-vous importer ce questionnaire depuis le serveur ?'),
+            Text(l10n.importSurveyQuestion),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
               await _importByUid(uid, panierUrl: panierUrl);
             },
-            child: const Text('Importer'),
+            child: Text(l10n.import),
           ),
         ],
       ),
@@ -186,23 +189,22 @@ class _ScannerScreenState extends State<ScannerScreen>
   }
 
   Future<void> _importByUid(String uid, {String? panierUrl}) async {
-    // Afficher un loader
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const AlertDialog(
+      builder: (_) => AlertDialog(
         content: Row(
           children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Text('Importation en cours...'),
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Text(l10n.importing),
           ],
         ),
       ),
     );
 
     try {
-      // fetchQuestionnaireByUid essaie WiFi d'abord, puis panier si absent
       final full = await ApiService.fetchQuestionnaireByUid(uid, panierUrl: panierUrl);
       await DbService.saveQuestionnaire(full);
 
@@ -210,15 +212,14 @@ class _ScannerScreenState extends State<ScannerScreen>
         Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Questionnaire "${full.questionnaire.nom}" importé !'),
+            content: Text(l10n.surveyImported(full.questionnaire.nom)),
             backgroundColor: Colors.green,
             action: SnackBarAction(
-              label: 'Saisir',
+              label: l10n.enter,
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      FormulaireScreen(questId: full.questionnaire.id),
+                  builder: (_) => FormulaireScreen(questId: full.questionnaire.id),
                 ),
               ),
             ),
@@ -227,7 +228,7 @@ class _ScannerScreenState extends State<ScannerScreen>
       }
     } catch (e) {
       if (mounted) Navigator.of(context, rootNavigator: true).pop();
-      _showError('Erreur lors de l\'importation : $e');
+      _showError(l10n.importError(e.toString()));
     }
   }
 
@@ -238,13 +239,13 @@ class _ScannerScreenState extends State<ScannerScreen>
     );
   }
 
-  // ── Saisie manuelle d'UID ────────────────────────────────────────────────
   Future<void> _manualEntry() async {
+    final l10n = AppLocalizations.of(context)!;
     final ctrl = TextEditingController();
     final uid = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Saisir un UID'),
+        title: Text(l10n.enterUidTitle),
         content: TextField(
           controller: ctrl,
           decoration: const InputDecoration(
@@ -254,10 +255,13 @@ class _ScannerScreenState extends State<ScannerScreen>
           textCapitalization: TextCapitalization.characters,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim().toUpperCase()),
-            child: const Text('Importer'),
+            child: Text(l10n.import),
           ),
         ],
       ),
@@ -269,24 +273,23 @@ class _ScannerScreenState extends State<ScannerScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scanner'),
+        title: Text(l10n.scannerTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.keyboard),
             onPressed: _manualEntry,
-            tooltip: 'Saisir UID manuellement',
+            tooltip: l10n.enterUidManuallyTooltip,
           ),
         ],
       ),
-      body: _scanning
-          ? _buildScanner()
-          : _buildIdle(),
+      body: _scanning ? _buildScanner(l10n) : _buildIdle(l10n),
     );
   }
 
-  Widget _buildIdle() {
+  Widget _buildIdle(AppLocalizations l10n) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -295,21 +298,21 @@ class _ScannerScreenState extends State<ScannerScreen>
           children: [
             const Icon(Icons.qr_code_scanner, size: 100, color: Color(0xFF003366)),
             const SizedBox(height: 24),
-            const Text(
-              'Scanner un QR code de questionnaire',
+            Text(
+              l10n.scanSurveyQr,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Le QR code est affiché dans l\'application Desktop',
+            Text(
+              l10n.qrShownInDesktop,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
+              style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
               icon: const Icon(Icons.camera_alt),
-              label: const Text('Démarrer le scanner'),
+              label: Text(l10n.startScanner),
               onPressed: _processing ? null : _startScan,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -318,7 +321,7 @@ class _ScannerScreenState extends State<ScannerScreen>
             const SizedBox(height: 12),
             OutlinedButton.icon(
               icon: const Icon(Icons.keyboard),
-              label: const Text('Saisir un UID manuellement'),
+              label: Text(l10n.enterUidManually),
               onPressed: _manualEntry,
             ),
             if (_lastResult != null) ...[
@@ -350,19 +353,17 @@ class _ScannerScreenState extends State<ScannerScreen>
     );
   }
 
-  Widget _buildScanner() {
+  Widget _buildScanner(AppLocalizations l10n) {
     return Stack(
       children: [
         MobileScanner(
           controller: _controller!,
           onDetect: _onDetect,
         ),
-        // Overlay avec cadre de scan
         CustomPaint(
           painter: _ScanOverlayPainter(),
           child: const SizedBox.expand(),
         ),
-        // Bouton stop
         Positioned(
           bottom: 40,
           left: 0,
@@ -370,15 +371,12 @@ class _ScannerScreenState extends State<ScannerScreen>
           child: Center(
             child: ElevatedButton.icon(
               icon: const Icon(Icons.stop),
-              label: const Text('Arrêter'),
+              label: Text(l10n.stopScanner),
               onPressed: _stopScan,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             ),
           ),
         ),
-        // Instructions
         Positioned(
           top: 40,
           left: 0,
@@ -390,9 +388,9 @@ class _ScannerScreenState extends State<ScannerScreen>
                 color: Colors.black54,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text(
-                'Pointez la caméra sur le QR code',
-                style: TextStyle(color: Colors.white),
+              child: Text(
+                l10n.pointCameraAtQr,
+                style: const TextStyle(color: Colors.white),
               ),
             ),
           ),
@@ -402,7 +400,6 @@ class _ScannerScreenState extends State<ScannerScreen>
   }
 }
 
-/// Overlay dessiné autour du cadre de scan
 class _ScanOverlayPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -414,29 +411,23 @@ class _ScanOverlayPainter extends CustomPainter {
       height: rectSize,
     );
 
-    // Zones sombres autour du carré
     canvas.drawRect(Rect.fromLTRB(0, 0, size.width, rect.top), paint);
     canvas.drawRect(Rect.fromLTRB(0, rect.bottom, size.width, size.height), paint);
     canvas.drawRect(Rect.fromLTRB(0, rect.top, rect.left, rect.bottom), paint);
     canvas.drawRect(Rect.fromLTRB(rect.right, rect.top, size.width, rect.bottom), paint);
 
-    // Coins colorés
     final corner = Paint()
       ..color = const Color(0xFFF59E0B)
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke;
     const cLen = 24.0;
 
-    // Coin haut-gauche
     canvas.drawLine(rect.topLeft, rect.topLeft + const Offset(cLen, 0), corner);
     canvas.drawLine(rect.topLeft, rect.topLeft + const Offset(0, cLen), corner);
-    // Coin haut-droit
     canvas.drawLine(rect.topRight, rect.topRight + const Offset(-cLen, 0), corner);
     canvas.drawLine(rect.topRight, rect.topRight + const Offset(0, cLen), corner);
-    // Coin bas-gauche
     canvas.drawLine(rect.bottomLeft, rect.bottomLeft + const Offset(cLen, 0), corner);
     canvas.drawLine(rect.bottomLeft, rect.bottomLeft + const Offset(0, -cLen), corner);
-    // Coin bas-droit
     canvas.drawLine(rect.bottomRight, rect.bottomRight + const Offset(-cLen, 0), corner);
     canvas.drawLine(rect.bottomRight, rect.bottomRight + const Offset(0, -cLen), corner);
   }

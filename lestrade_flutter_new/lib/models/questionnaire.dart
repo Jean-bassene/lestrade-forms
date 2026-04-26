@@ -2,6 +2,8 @@
 // models/questionnaire.dart
 // ============================================================================
 
+import 'dart:convert';
+
 class Questionnaire {
   final int id;
   final String nom;
@@ -121,19 +123,9 @@ class Question {
   List<String> get parsedOptions {
     if (options == null || options!.isEmpty || options == '{}') return [];
     try {
-      // L'API renvoie options comme string JSON encodé en string
-      // ex: "[\"option1\",\"option2\"]" ou "{}"
-      final raw = options!.trim();
-      if (raw.startsWith('[')) {
-        // Tableau JSON → liste
-        final list = (raw
-            .replaceAll('[', '')
-            .replaceAll(']', '')
-            .split(','))
-            .map((s) => s.trim().replaceAll('"', ''))
-            .where((s) => s.isNotEmpty)
-            .toList();
-        return list;
+      final decoded = jsonDecode(options!);
+      if (decoded is List) {
+        return decoded.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
       }
       return [];
     } catch (_) {

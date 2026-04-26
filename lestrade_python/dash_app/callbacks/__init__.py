@@ -1,4 +1,4 @@
-from . import welcome, gestion, construction, remplir, reponses, analytics, import_ext, panier, admin
+from . import welcome, gestion, construction, remplir, reponses, analytics, import_ext, panier, admin, plan
 
 
 def register_all(app):
@@ -11,3 +11,4 @@ def register_all(app):
     import_ext.register(app)
     panier.register(app)
     admin.register(app)
+    plan.register(app)

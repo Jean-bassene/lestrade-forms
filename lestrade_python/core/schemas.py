@@ -12,6 +12,7 @@ import re
 class QuestionnaireIn(BaseModel):
     nom:         str
     description: str | None = None
+    owner_email: str | None = None
 
     @field_validator("nom")
     @classmethod

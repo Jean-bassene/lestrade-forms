@@ -1,8 +1,10 @@
 // ============================================================================
-// screens/settings_screen.dart — Paramètres (serveur + infos)
+// screens/settings_screen.dart — Paramètres (serveur + langue + infos)
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
+import '../main.dart';
 import '../services/api_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -17,7 +19,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _testing = false;
   bool? _testResult;
   String _testMsg = '';
-  bool _showManual = false;  // section manuelle masquée par défaut
+  bool _showManual = false;
+
+  // Supported languages: (code, native name)
+  static const _languages = [
+    ('fr', 'Français'),
+    ('en', 'English'),
+    ('ar', 'العربية'),
+  ];
 
   @override
   void initState() {
@@ -37,6 +46,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _save() async {
+    final l10n = AppLocalizations.of(context)!;
     final raw = _urlCtrl.text.trim();
     if (raw.isEmpty) return;
     final url = ApiService.buildUrl(raw);
@@ -44,12 +54,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _urlCtrl.text = url;
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Adresse enregistrée'), backgroundColor: Colors.green),
+        SnackBar(
+          content: Text(l10n.addressSaved),
+          backgroundColor: Colors.green,
+        ),
       );
     }
   }
 
   Future<void> _test() async {
+    final l10n = AppLocalizations.of(context)!;
     final raw = _urlCtrl.text.trim();
     if (raw.isEmpty) return;
     final url = ApiService.buildUrl(raw);
@@ -59,28 +73,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _testing = false;
         _testResult = ok;
-        _testMsg = ok ? 'Serveur accessible !' : 'Impossible de joindre le serveur';
+        _testMsg = ok ? l10n.serverAccessible : l10n.cannotReachServer;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final currentLocale = Localizations.localeOf(context).languageCode;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Paramètres')),
+      appBar: AppBar(title: Text(l10n.settingsTitle)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
 
-          // ── Statut connexion actuelle ────────────────────────────────
+          // ── Connexion serveur ────────────────────────────────────────
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Connexion serveur',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(l10n.serverConnection,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -90,7 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Text(
                           _urlCtrl.text.isNotEmpty
                               ? _urlCtrl.text
-                              : 'Non configuré — scannez le QR du coordinateur',
+                              : l10n.notConfigured,
                           style: TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 13,
@@ -103,13 +120,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // Bouton tester
                   OutlinedButton.icon(
                     icon: _testing
-                        ? const SizedBox(width: 16, height: 16,
+                        ? const SizedBox(
+                            width: 16, height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.wifi_find),
-                    label: const Text('Tester la connexion'),
+                    label: Text(l10n.testConnection),
                     onPressed: _testing ? null : _test,
                   ),
                   if (_testResult != null) ...[
@@ -129,7 +146,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                   const SizedBox(height: 12),
-                  // Saisie manuelle — masquée par défaut
                   InkWell(
                     onTap: () => setState(() => _showManual = !_showManual),
                     child: Row(
@@ -137,8 +153,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Icon(_showManual ? Icons.expand_less : Icons.expand_more,
                             size: 18, color: Colors.grey),
                         const SizedBox(width: 4),
-                        const Text('Configurer manuellement',
-                            style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        Text(l10n.configureManually,
+                            style: const TextStyle(color: Colors.grey, fontSize: 13)),
                       ],
                     ),
                   ),
@@ -146,10 +162,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _urlCtrl,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
                         hintText: '192.168.1.10',
-                        helperText: 'IP du PC coordinateur (port 8765 ajouté auto)',
+                        helperText: l10n.coordinatorIpHelper,
                       ),
                       keyboardType: TextInputType.url,
                       autocorrect: false,
@@ -157,10 +173,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 8),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.save),
-                      label: const Text('Enregistrer'),
+                      label: Text(l10n.save),
                       onPressed: _save,
                     ),
                   ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ── Langue ───────────────────────────────────────────────────
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.language,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 8),
+                  ..._languages.map((lang) {
+                    final (code, name) = lang;
+                    final selected = currentLocale == code;
+                    return RadioListTile<String>(
+                      title: Text(name),
+                      value: code,
+                      groupValue: currentLocale,
+                      dense: true,
+                      activeColor: const Color(0xFF003366),
+                      selected: selected,
+                      onChanged: (v) {
+                        if (v != null) {
+                          LestradeApp.of(context)?.setLocale(Locale(v));
+                        }
+                      },
+                    );
+                  }),
                 ],
               ),
             ),
@@ -174,14 +223,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('À propos',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(l10n.aboutTitle,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
-                  const Text('Lestrade Forms — Application de collecte terrain'),
-                  const Text('Version 1.0.0'),
+                  Text(l10n.aboutDesc),
+                  Text(l10n.version),
                   const SizedBox(height: 8),
                   Text(
-                    'Collecte offline · Sync réseau local · Analyse Desktop',
+                    l10n.aboutFeatures,
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
                 ],

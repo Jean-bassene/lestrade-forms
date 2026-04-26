@@ -108,6 +108,9 @@ async def reponses_wide(quest_id: int, db: AsyncSession = Depends(get_db)):
         .order_by(Reponse.horodateur.desc())
     )).scalars().all()
 
+    if not reponses:
+        return []
+
     questions = (await db.execute(
         select(Question, Section.nom.label("section_nom"))
         .join(Section, Question.section_id == Section.id)
@@ -115,21 +118,51 @@ async def reponses_wide(quest_id: int, db: AsyncSession = Depends(get_db)):
         .order_by(Section.ordre, Question.ordre)
     )).all()
 
-    if not reponses or not questions:
-        return []
-
-    q_ids  = [str(row.Question.id) for row in questions]
-    labels = [f"{row.section_nom} / {row.Question.texte}" for row in questions]
-
     rows = []
-    for rep in reponses:
-        try:
-            data = json.loads(rep.donnees_json)
-        except Exception:
-            data = {}
-        row: dict = {"reponse_id": rep.id, "horodateur": str(rep.horodateur)}
-        for qid, label in zip(q_ids, labels):
-            val = data.get(qid, "")
-            row[label] = " | ".join(val) if isinstance(val, list) else str(val) if val else ""
-        rows.append(row)
+
+    GPS_KEYS = {
+        "_latitude":    "latitude",
+        "_longitude":   "longitude",
+        "_gps_accuracy": "gps_précision_m",
+    }
+
+    if questions:
+        # Mode structuré : colonnes = texte des questions + GPS automatique
+        q_ids  = [str(row.Question.id) for row in questions]
+        labels = [f"{row.section_nom} / {row.Question.texte}" for row in questions]
+        for rep in reponses:
+            try:
+                data = json.loads(rep.donnees_json)
+            except Exception:
+                data = {}
+            row: dict = {"reponse_id": rep.id, "horodateur": str(rep.horodateur)}
+            for qid, label in zip(q_ids, labels):
+                val = data.get(qid, "")
+                row[label] = " | ".join(val) if isinstance(val, list) else str(val) if val else ""
+            # Coordonnées GPS capturées automatiquement par le mobile
+            for gps_key, col_name in GPS_KEYS.items():
+                if gps_key in data:
+                    row[col_name] = str(data[gps_key])
+            rows.append(row)
+    else:
+        # Mode brut : colonnes = clés du JSON (mobile sans structure locale)
+        all_keys: list[str] = []
+        parsed_cache: list[dict] = []
+        for rep in reponses:
+            try:
+                data = json.loads(rep.donnees_json)
+            except Exception:
+                data = {}
+            parsed_cache.append(data)
+            for k in data:
+                if k not in all_keys:
+                    all_keys.append(k)
+
+        for rep, data in zip(reponses, parsed_cache):
+            row: dict = {"reponse_id": rep.id, "horodateur": str(rep.horodateur)}
+            for k in all_keys:
+                val = data.get(k, "")
+                row[k] = " | ".join(val) if isinstance(val, list) else str(val) if val else ""
+            rows.append(row)
+
     return rows

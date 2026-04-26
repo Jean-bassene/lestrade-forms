@@ -1,33 +1,36 @@
 // ============================================================================
-// Lestrade Forms — Panier Google Apps Script v3
+// Lestrade Forms — Panier Google Apps Script v4 (Panier centralisé)
 // Déployer comme "Application Web" > Accès : Tout le monde (anonyme)
 //
-// POST /exec                                   → envoyer réponses OU sauvegarder questionnaire
-// POST /exec  { action:"save_quest" }          → sauvegarder questionnaire
-// POST /exec  { action:"register_email" }      → enregistrer email trial
-// POST /exec  { action:"activate_key" }        → activer une clé licence (email optionnel)
-// POST /exec  { action:"change_email" }        → changer l'email d'une licence
-// GET  /exec?action=info                       → statut général
-// GET  /exec?action=list[&quest_id=X]          → lister réponses du panier
-// GET  /exec?action=clear[&quest_id=X]         → vider le panier
-// GET  /exec?action=get_quest&uid=LEST-XX      → récupérer un questionnaire
-// GET  /exec?action=check_licence&email=X      → vérifier statut licence
-// GET  /exec?action=check_key&cle=LEST-XXXX   → vérifier clé seule (retourne email + statut)
-// GET  /exec?action=list_pending              → lister demandes en attente de paiement (admin)
-// POST /exec  { action:"request_licence" }    → demande licence depuis landing page → email auto
-// POST /exec  { action:"admin_activate" }     → activer une clé (admin) → email confirmation client
+// PANIER CENTRALISÉ : toutes les réponses arrivent dans un seul Sheet.
+// Chaque utilisateur est identifié par son user_email.
+//
+// POST /exec                                        → envoyer réponses (champ user_email requis)
+// POST /exec  { action:"save_quest" }               → sauvegarder questionnaire
+// POST /exec  { action:"register_email" }           → enregistrer email trial
+// POST /exec  { action:"activate_key" }             → activer une clé licence
+// POST /exec  { action:"change_email" }             → changer l'email d'une licence
+// GET  /exec?action=info                            → statut général
+// GET  /exec?action=list[&user_email=X][&quest_id=Y]→ lister réponses filtrées
+// GET  /exec?action=clear&user_email=X[&quest_id=Y] → vider le panier d'un utilisateur
+// GET  /exec?action=get_quest&uid=LEST-XX           → récupérer un questionnaire
+// GET  /exec?action=check_licence&email=X           → vérifier statut licence
+// GET  /exec?action=check_key&cle=LEST-XXXX         → vérifier clé seule
+// GET  /exec?action=list_pending                    → demandes en attente (admin)
+// POST /exec  { action:"request_licence" }          → demande licence → email auto
+// POST /exec  { action:"admin_activate" }           → activer une clé (admin)
 // ============================================================================
 
 var SHEET_REPONSES       = "Panier";
 var SHEET_QUESTIONNAIRES = "Questionnaires";
 var SHEET_LICENCES       = "Licences";
-var VERSION              = "3.0";
+var VERSION              = "4.0";
 var TRIAL_DAYS           = 90;
 
 var ADMIN_EMAIL          = "bassene.jean@yahoo.com";
 var APP_NAME             = "Lestrade Forms";
-var TARIFS               = { annuel: "25 000 FCFA (~38 €)", permanent: "75 000 FCFA (~114 €) — 5 clés" };
-var WAVE_NUMBER          = "+221 77 500 89 88";
+var TARIFS               = { annuel: "25 000 FCFA (~38 €)", permanent: "75 000 FCFA (~114 €)" };
+var WAVE_NUMBER          = "+221 768 662 938";
 
 // ── Feuilles ─────────────────────────────────────────────────────────────────
 
@@ -36,8 +39,9 @@ function getSheetReponses() {
   var sheet = ss.getSheetByName(SHEET_REPONSES);
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_REPONSES);
-    sheet.appendRow(["quest_id", "uuid", "horodateur", "donnees_json", "recu_le", "latitude", "longitude"]);
+    sheet.appendRow(["quest_id", "user_email", "uuid", "horodateur", "donnees_json", "recu_le"]);
     sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, 6).setBackground("#003366").setFontColor("#FFFFFF").setFontWeight("bold");
   }
   return sheet;
 }
@@ -97,28 +101,23 @@ function doPost(e) {
 // ── Réponses ─────────────────────────────────────────────────────────────────
 
 function saveReponses(body) {
-  var sheet    = getSheetReponses();
-  var quest_id = body.quest_id     || "";
-  var reponses = body.reponses_full || [];
-  var recu_le  = new Date().toISOString();
+  var sheet      = getSheetReponses();
+  var quest_id   = body.quest_id     || "";
+  var user_email = (body.user_email  || "").toString().toLowerCase().trim();
+  var reponses   = body.reponses_full || [];
+  var recu_le    = new Date().toISOString();
 
   var data          = sheet.getDataRange().getValues();
   var existingUUIDs = {};
-  for (var i = 1; i < data.length; i++) existingUUIDs[data[i][1]] = true;
+  // UUID est en colonne 2 (index 2) dans la nouvelle structure
+  for (var i = 1; i < data.length; i++) existingUUIDs[data[i][2]] = true;
 
   var saved = 0;
   for (var r = 0; r < reponses.length; r++) {
     var rep  = reponses[r];
     var uuid = rep.uuid || "";
     if (uuid && existingUUIDs[uuid]) continue;
-    // Extraire lat/lon du JSON pour colonnes séparées
-    var lat = "", lon = "";
-    try {
-      var d = JSON.parse(rep.donnees_json || "{}");
-      if (d._latitude  !== undefined) lat = d._latitude;
-      if (d._longitude !== undefined) lon = d._longitude;
-    } catch(ex) {}
-    sheet.appendRow([quest_id, uuid, rep.horodateur || recu_le, rep.donnees_json || "{}", recu_le, lat, lon]);
+    sheet.appendRow([quest_id, user_email, uuid, rep.horodateur || recu_le, rep.donnees_json || "{}", recu_le]);
     existingUUIDs[uuid] = true;
     saved++;
   }
@@ -201,7 +200,7 @@ function registerEmail(body) {
     "L'équipe " + APP_NAME + "\n" +
     ADMIN_EMAIL + " · " + WAVE_NUMBER;
 
-  try { GmailApp.sendEmail(email, sujet, corps, { name: APP_NAME, replyTo: ADMIN_EMAIL }); } catch(e) {}
+  try { GmailApp.sendEmail(email, sujet, corps); } catch(e) {}
 
   return jsonResponse({
     status:        "ok",
@@ -282,34 +281,9 @@ function changeEmail(body) {
     }
   }
 
-  // Aucun old_email trouvé → nouveau trial pour new_email + email bienvenue
-  var now     = new Date();
-  var nowIso  = now.toISOString();
-  var expiry  = new Date(now.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
-  var expiryStr = Utilities.formatDate(expiry, "Africa/Dakar", "dd/MM/yyyy");
-  sheet.appendRow([new_email, nowIso, "trial", "", "", TRIAL_DAYS]);
-
-  var sujet = "[" + APP_NAME + "] Bienvenue — votre trial de " + TRIAL_DAYS + " jours a démarré";
-  var corps =
-    "Bonjour,\n\n" +
-    "Merci d'utiliser " + APP_NAME + " !\n\n" +
-    "Votre période d'essai gratuite est maintenant active.\n\n" +
-    "┌─────────────────────────────────────┐\n" +
-    "│  TRIAL GRATUIT                      │\n" +
-    "│  Email   : " + new_email + "\n" +
-    "│  Durée   : " + TRIAL_DAYS + " jours complets          │\n" +
-    "│  Expire  : " + expiryStr + "                  │\n" +
-    "└─────────────────────────────────────┘\n\n" +
-    "Pendant votre trial, vous avez accès à toutes les fonctionnalités.\n\n" +
-    "Pour continuer après le " + expiryStr + " :\n" +
-    "  • Annuelle  : " + TARIFS.annuel + "\n" +
-    "  • Permanente: " + TARIFS.permanent + "\n\n" +
-    "Demandez votre licence : " + ADMIN_EMAIL + "\n" +
-    "Paiement via Wave : " + WAVE_NUMBER + "\n\n" +
-    "Bonne collecte de données !\n" +
-    "L'équipe " + APP_NAME;
-  try { GmailApp.sendEmail(new_email, sujet, corps, { name: APP_NAME, replyTo: ADMIN_EMAIL }); } catch(e) {}
-
+  // Aucun old_email trouvé → nouveau trial pour new_email
+  var now = new Date().toISOString();
+  sheet.appendRow([new_email, now, "trial", "", "", TRIAL_DAYS]);
   return jsonResponse({
     status:         "ok",
     action:         "registered",
@@ -426,14 +400,20 @@ function doGet(e) {
 
     // ── LIST ──
     if (action === "list") {
+      var user_email_f = (e.parameter.user_email || "").toLowerCase().trim();
       var sheet = getSheetReponses();
       var data  = sheet.getDataRange().getValues();
       var rows  = [];
       for (var i = 1; i < data.length; i++) {
         if (quest_id && data[i][0].toString() !== quest_id) continue;
+        if (user_email_f && data[i][1].toString().toLowerCase() !== user_email_f) continue;
         rows.push({
-          quest_id: data[i][0], uuid: data[i][1],
-          horodateur: data[i][2], donnees_json: data[i][3], recu_le: data[i][4]
+          quest_id:    data[i][0],
+          user_email:  data[i][1],
+          uuid:        data[i][2],
+          horodateur:  data[i][3],
+          donnees_json:data[i][4],
+          recu_le:     data[i][5]
         });
       }
       return jsonResponse({ status: "ok", reponses: rows });
@@ -441,18 +421,17 @@ function doGet(e) {
 
     // ── CLEAR ──
     if (action === "clear") {
+      var user_email_c = (e.parameter.user_email || "").toLowerCase().trim();
       var sheet = getSheetReponses();
       if (sheet.getLastRow() <= 1) return jsonResponse({ status: "ok", deleted: 0 });
-      if (!quest_id) {
-        sheet.deleteRows(2, sheet.getLastRow() - 1);
-        return jsonResponse({ status: "ok", deleted: "all" });
-      }
       var deleted = 0;
       for (var i = sheet.getLastRow(); i >= 2; i--) {
-        if (sheet.getRange(i, 1).getValue().toString() === quest_id) {
-          sheet.deleteRow(i);
-          deleted++;
-        }
+        var row_quest = sheet.getRange(i, 1).getValue().toString();
+        var row_email = sheet.getRange(i, 2).getValue().toString().toLowerCase();
+        if (quest_id && row_quest !== quest_id) continue;
+        if (user_email_c && row_email !== user_email_c) continue;
+        sheet.deleteRow(i);
+        deleted++;
       }
       return jsonResponse({ status: "ok", deleted: deleted });
     }
@@ -593,7 +572,7 @@ function requestLicence(body) {
     "Cordialement,\n" +
     "L'équipe " + APP_NAME;
 
-  GmailApp.sendEmail(email, sujet_client, corps_client, { name: APP_NAME, replyTo: ADMIN_EMAIL });
+  GmailApp.sendEmail(email, sujet_client, corps_client);
 
   // ── Notification admin ──
   var sujet_admin = "[" + APP_NAME + "] Nouvelle demande — " + nom + " (" + libelle + ")";
@@ -607,7 +586,7 @@ function requestLicence(body) {
     "→ Dès réception du paiement Wave, activez la clé depuis l'app (onglet Admin)\n" +
     "  ou directement dans le Sheet Licences : statut → premium.";
 
-  GmailApp.sendEmail(ADMIN_EMAIL, sujet_admin, corps_admin, { name: APP_NAME });
+  GmailApp.sendEmail(ADMIN_EMAIL, sujet_admin, corps_admin);
 
   return jsonResponse({
     status:  "ok",
@@ -663,33 +642,9 @@ function adminActivate(body) {
       sheet.getRange(i + 1, 3).setValue("premium");
       sheet.getRange(i + 1, 5).setValue(now.toISOString());
 
-      // ── Pack Permanent : générer 4 clés supplémentaires (total 5) ──
-      var toutesLesCles = [cle];
-      if (formule === "permanent") {
-        for (var k = 0; k < 4; k++) {
-          var seed2 = email + now.getTime() + k + Math.random();
-          var hash2 = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
-                      seed2.toString(), Utilities.Charset.UTF_8)
-                      .map(function(b) { return (b < 0 ? b + 256 : b).toString(16).padStart(2, "0"); })
-                      .join("").toUpperCase().substring(0, 16);
-          var cleExtra = "LEST-" + hash2.substring(0,4) + "-" + hash2.substring(4,8) + "-" +
-                                   hash2.substring(8,12) + "-" + hash2.substring(12,16);
-          toutesLesCles.push(cleExtra);
-          sheet.appendRow([email, now.toISOString(), "premium", cleExtra, now.toISOString(), "permanent"]);
-        }
-      }
-
       // ── Email 3 : Reçu / Ticket de caisse ──
       var sujet = "[" + APP_NAME + "] ✓ Paiement reçu — Licence activée — " + numRecu;
       var ligne = "─────────────────────────────────────────";
-      var clesList = toutesLesCles.length === 1
-        ? "  Clé     : " + toutesLesCles[0]
-        : toutesLesCles.map(function(c, idx) {
-            return "  Clé " + (idx + 1) + "   : " + c;
-          }).join("\n");
-      var activerInstr = toutesLesCles.length === 1
-        ? "  3. Entrez votre clé : " + toutesLesCles[0]
-        : "  3. Chaque utilisateur entre sa propre clé dans l'application";
       var corps =
         "Bonjour,\n\n" +
         "Votre paiement a été reçu et votre licence est activée. Merci !\n\n" +
@@ -701,27 +656,26 @@ function adminActivate(body) {
         "  Formule : " + libelle + "\n" +
         "  Montant : " + montant + "\n" +
         "  Date    : " + dateStr + " à " + heureStr + "\n" +
-        clesList + "\n" +
+        "  Clé     : " + cle + "\n" +
         ligne + "\n\n" +
         "Comment activer dans l'application :\n" +
         "  1. Ouvrez Lestrade Forms\n" +
         "  2. Cliquez sur le badge de licence en haut à droite\n" +
-        activerInstr + "\n" +
-        "  4. Cliquez Activer → l'accès premium est immédiat\n\n" +
+        "  3. Entrez votre clé : " + cle + "\n" +
+        "  4. Cliquez Activer → votre accès premium est immédiat\n\n" +
         "Conservez ce reçu comme preuve de paiement.\n\n" +
         "Merci pour votre confiance !\n" +
         "L'équipe " + APP_NAME + "\n" +
         ADMIN_EMAIL + " · " + WAVE_NUMBER;
 
-      GmailApp.sendEmail(email, sujet, corps, { name: APP_NAME, replyTo: ADMIN_EMAIL });
+      GmailApp.sendEmail(email, sujet, corps);
 
       return jsonResponse({
         status:  "ok",
         action:  "activated",
         email:   email,
         cle:     cle,
-        cles:    toutesLesCles,
-        message: "Licence activée — " + toutesLesCles.length + " clé(s) envoyée(s) à " + email
+        message: "Licence activée — email envoyé à " + email
       });
     }
   }

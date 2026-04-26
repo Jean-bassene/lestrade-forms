@@ -13,54 +13,57 @@ body {
   padding: 20px;
 }
 
-/* ── En-tête unifié (brand gauche + tabs droite) ─────────────────────────── */
-
-.app-header-container {
-  position: relative;
-  margin-bottom: 20px;
-}
-
-/* Brand superposé sur la barre de navigation */
-.app-brand {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 52px;           /* doit correspondre à la hauteur des nav-link */
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 0 22px;
-  z-index: 10;
-  pointer-events: none;   /* les clics passent au travers vers les onglets */
-}
-.header-title {
-  font-size: 17px;
-  font-weight: 800;
-  color: white;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-}
-.header-subtitle {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.55);
-  white-space: nowrap;
-}
-
-/* Barre de navigation (fond sombre, onglets à droite du brand) */
-.app-tabs > ul.nav.nav-tabs {
+/* ── En-tête unifié ──────────────────────────────────────────────────────── */
+/*
+ * DBC rend dbc.Tabs comme <ul class="app-tabs nav nav-tabs">.
+ * Le brand est le PREMIER onglet désactivé (tab_id="_brand").
+ * Pas de position:absolute, pas de padding-left artificiels.
+ */
+.app-tabs {
   background: linear-gradient(135deg, #16324f 0%, #245c7c 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 14px 14px 0 0;
-  padding: 0 12px 0 210px;  /* 210px = espace pour le brand */
-  margin: 0;
-  flex-wrap: nowrap;
+  padding: 0 12px 0 0 !important;
+  margin: 0 0 20px 0 !important;
+  flex-wrap: nowrap !important;
   overflow-x: auto;
   scrollbar-width: none;
 }
-.app-tabs > ul.nav.nav-tabs::-webkit-scrollbar { display: none; }
+.app-tabs::-webkit-scrollbar { display: none; }
 
-/* Onglets dans le header */
-.app-tabs > ul.nav.nav-tabs .nav-link {
+
+/* Le nav-link du brand : pas d'effet actif/hover */
+.app-tabs .nav-item:first-child .nav-link {
+  pointer-events: none !important;
+  cursor: default !important;
+  border: none !important;
+  border-bottom: none !important;
+  background: transparent !important;
+  padding: 8px 22px 4px !important;
+  opacity: 1 !important;         /* annule le gris Bootstrap pour disabled */
+  line-height: 1.15 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;   /* centrage vertical dans la barre */
+  color: white !important;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Sous-titre injecté après "Lestrade Forms" */
+.app-tabs .nav-item:first-child .nav-link::after {
+  content: 'Collecte · Analyse · Décision';
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+
+/* Onglets normaux */
+.app-tabs .nav-link {
   color: rgba(255, 255, 255, 0.65) !important;
   font-size: 13px;
   font-weight: 600;
@@ -72,21 +75,18 @@ body {
   background: transparent !important;
   transition: color .15s, border-color .15s;
 }
-.app-tabs > ul.nav.nav-tabs .nav-link:hover {
+.app-tabs .nav-link:hover {
   color: white !important;
   border-bottom-color: rgba(255, 255, 255, 0.3) !important;
 }
-.app-tabs > ul.nav.nav-tabs .nav-link.active {
+.app-tabs .nav-link.active {
   color: #e6a700 !important;
   border-bottom: 3px solid #e6a700 !important;
+  background: transparent !important;
 }
-.app-tabs > ul.nav.nav-tabs .nav-link.disabled {
-  display: none !important;   /* cache l'onglet Admin pour les non-admins */
-}
-
-/* Zone de contenu (en-dessous du header) */
-.app-tabs > .tab-content {
-  padding-top: 0;
+/* Onglet Admin caché pour les non-admins */
+.app-tabs .nav-link.disabled:not(:first-child) {
+  display: none !important;
 }
 
 /* Hero interne (utilisé dans Import et Accueil) */
@@ -154,7 +154,7 @@ body {
 .alert-info    { background: #e3f2fd; border: 1px solid #90caf9; border-radius: 10px; padding: 12px 16px; color: #1565c0; }
 .alert-warn    { background: #fff8e1; border: 1px solid #ffe082; border-radius: 10px; padding: 12px 16px; color: #f57f17; }
 
-/* Tabs */
+/* Sous-onglets internes (analytics, etc.) — règle générique, avant les règles header */
 .nav-tabs .nav-link          { font-weight: 600; color: #52606d; }
 .nav-tabs .nav-link.active   { color: #16324f; border-bottom: 3px solid #e6a700; }
 
@@ -195,16 +195,79 @@ body {
   white-space: nowrap;
 }
 
-/* Ad zone placeholder */
+/* ── Bannière auto-promo ─────────────────────────────────────────────── */
 .ad-zone {
-  background: #f9f9f9;
-  border: 2px dashed #c8d0da;
+  margin: 12px 0 4px;
   border-radius: 12px;
-  padding: 20px;
-  text-align: center;
-  color: #8a9ab0;
+  overflow: hidden;
+}
+
+.ad-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px;
+  background: linear-gradient(90deg, #0f2942 0%, #16324f 40%, #1a4a6e 100%);
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.ad-brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ad-logo {
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.ad-badge-pro {
+  background: #e6a700;
+  color: #1a1a1a;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.ad-features {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  flex-wrap: wrap;
   font-size: 13px;
-  margin: 10px 0;
+  color: rgba(255,255,255,0.80);
+}
+
+.ad-sep {
+  color: rgba(255,255,255,0.25);
+}
+
+.ad-cta {
+  flex-shrink: 0;
+  background: #e6a700;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.ad-cta:hover {
+  background: #f5b800;
+  transform: translateY(-1px);
 }
 
 /* Progress */

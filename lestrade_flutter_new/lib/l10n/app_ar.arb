@@ -1,0 +1,138 @@
+{
+  "@@locale": "ar",
+
+  "appTitle": "Lestrade Forms",
+  "refresh": "تحديث",
+  "cancel": "إلغاء",
+  "delete": "حذف",
+  "save": "حفظ",
+  "ok": "موافق",
+  "import": "استيراد",
+  "synchronize": "مزامنة",
+  "language": "اللغة",
+
+  "navHome": "الرئيسية",
+  "navSurveys": "استطلاعات",
+  "navResponses": "إجابات",
+  "navScanner": "مسح",
+  "navSettings": "الإعدادات",
+
+  "statusChecking": "جارٍ التحقق...",
+  "statusWifi": "WiFi متصل",
+  "statusBasket": "وضع السلة — يعمل على أي شبكة",
+  "statusOffline": "غير متصل — امسح رمز QR للتهيئة",
+  "scanQrToStart": "امسح رمز QR لبدء الاستخدام",
+
+  "labelSurveys": "استطلاعات",
+  "labelPending": "قيد الانتظار",
+  "quickActions": "إجراءات سريعة",
+  "syncResponses": "مزامنة الإجابات",
+  "pendingToSend": "{count} إجابة في وضع غير متصل للإرسال",
+  "@pendingToSend": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "allSynced": "كل شيء تمت مزامنته",
+  "downloadSurveys": "تنزيل الاستطلاعات",
+  "downloadFromWifi": "يجلب القائمة من خادم WiFi",
+  "useQrScanner": "استخدم ماسح QR (بدون WiFi)",
+  "newEntry": "إدخال جديد",
+  "fillForm": "ملء استمارة",
+  "surveysDownloaded": "تم تنزيل {count} استطلاع",
+  "@surveysDownloaded": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "noConnection": "لا يوجد اتصال — تحقق من WiFi أو السلة",
+
+  "surveysTitle": "الاستطلاعات",
+  "noSurveysAvailable": "لا توجد استطلاعات",
+  "scanOrDownload": "امسح رمز QR أو نزّل\nمن الرئيسية",
+  "deleteQuestion": "حذف؟",
+  "deleteSurveyConfirm": "حذف \"{name}\" وإجاباته غير المتصلة؟",
+  "@deleteSurveyConfirm": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "sectionQuestionCount": "{sections} قسم • {questions} سؤال",
+  "@sectionQuestionCount": {
+    "placeholders": {
+      "sections": { "type": "int" },
+      "questions": { "type": "int" }
+    }
+  },
+
+  "responsesTitle": "الإجابات",
+  "questionnaire": "استطلاع",
+  "noResponses": "لا توجد إجابات",
+  "deleteResponseConfirm": "حذف هذه الإجابة محلياً؟",
+  "pendingSync": "في انتظار المزامنة",
+  "synced": "تمت المزامنة",
+  "pending": "قيد الانتظار",
+  "resend": "إعادة إرسال",
+  "markedForResend": "تم تعليم الإجابة لإعادة الإرسال",
+  "responseNumber": "إجابة {number}",
+  "@responseNumber": {
+    "placeholders": { "number": { "type": "int" } }
+  },
+
+  "scannerTitle": "الماسح",
+  "enterUidManuallyTooltip": "إدخال UID يدوياً",
+  "scanSurveyQr": "مسح رمز QR للاستطلاع",
+  "qrShownInDesktop": "رمز QR معروض في تطبيق سطح المكتب",
+  "startScanner": "بدء المسح",
+  "enterUidManually": "إدخال UID يدوياً",
+  "serverConfigured": "تم تهيئة الخادم",
+  "serverAddressSaved": "تم حفظ عنوان الخادم تلقائياً.",
+  "surveyDetected": "تم اكتشاف استطلاع",
+  "importSurveyQuestion": "هل تريد استيراد هذا الاستطلاع من الخادم؟",
+  "uidLabel": "UID: {uid}",
+  "@uidLabel": {
+    "placeholders": { "uid": { "type": "String" } }
+  },
+  "importing": "جارٍ الاستيراد...",
+  "surveyImported": "تم استيراد الاستطلاع \"{name}\"!",
+  "@surveyImported": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "enter": "ملء",
+  "importError": "خطأ في الاستيراد: {error}",
+  "@importError": {
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "uidNotFound": "لم يُوجد UID في رمز QR",
+  "qrNotRecognized": "رمز QR غير معروف",
+  "enterUidTitle": "إدخال UID",
+  "stopScanner": "إيقاف",
+  "pointCameraAtQr": "وجّه الكاميرا نحو رمز QR",
+
+  "settingsTitle": "الإعدادات",
+  "serverConnection": "اتصال الخادم",
+  "notConfigured": "غير مهيأ — امسح QR المنسق",
+  "testConnection": "اختبار الاتصال",
+  "serverAccessible": "الخادم متاح!",
+  "cannotReachServer": "تعذّر الوصول إلى الخادم",
+  "configureManually": "التهيئة اليدوية",
+  "coordinatorIpHelper": "IP جهاز المنسق (يُضاف المنفذ 8765 تلقائياً)",
+  "addressSaved": "تم حفظ العنوان",
+  "aboutTitle": "حول",
+  "aboutDesc": "Lestrade Forms — تطبيق جمع البيانات الميداني",
+  "version": "الإصدار 1.2.0",
+  "aboutFeatures": "جمع بلا اتصال · مزامنة محلية · تحليل سطح المكتب",
+
+  "formTitle": "الاستمارة",
+  "surveyNotFound": "الاستطلاع غير موجود",
+  "acquiringGps": "جارٍ الحصول على GPS...",
+  "gpsAcquired": "تم الحصول على GPS (±{accuracy} م)",
+  "@gpsAcquired": {
+    "placeholders": { "accuracy": { "type": "String" } }
+  },
+  "gpsUnavailable": "GPS غير متاح",
+  "responseSavedOffline": "تم حفظ الإجابة (بلا اتصال)",
+  "requiredFields": "الحقول المطلوبة: {fields}",
+  "@requiredFields": {
+    "placeholders": { "fields": { "type": "String" } }
+  },
+  "saveResponse": "حفظ الإجابة",
+  "selectDate": "اختر تاريخاً",
+  "noOptionsDefined": "(لم تُحدد خيارات)",
+  "emailHint": "مثال@بريد.com",
+  "phoneHint": "+..."
+}

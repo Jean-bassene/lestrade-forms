@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.database import init_db
-from .routers import health, questionnaires, reponses, sections, questions, config
+from .routers import health, questionnaires, reponses, sections, questions, config, licences, admin_db
 
 
 @asynccontextmanager
@@ -39,6 +39,8 @@ app.include_router(reponses.router)
 app.include_router(sections.router)
 app.include_router(questions.router)
 app.include_router(config.router)
+app.include_router(licences.router)
+app.include_router(admin_db.router)
 
 
 if __name__ == "__main__":

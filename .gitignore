@@ -1,3 +1,7 @@
+# Variables d'environnement (clés API, secrets — NE PAS commiter)
+.env
+.env.local
+
 # R-Portable embarqué (trop lourd pour git)
 LestradeApp/R-Portable/
 LestradeApp/ChromePortable/

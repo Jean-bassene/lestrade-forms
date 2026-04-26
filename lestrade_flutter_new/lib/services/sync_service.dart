@@ -43,6 +43,18 @@ class SyncService {
     await prefs.setString(_panierKey, url.trim());
   }
 
+  static const _coordinatorEmailKey = 'coordinator_email';
+
+  static Future<String?> getCoordinatorEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_coordinatorEmailKey);
+  }
+
+  static Future<void> setCoordinatorEmail(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_coordinatorEmailKey, email.trim().toLowerCase());
+  }
+
   // ── Sync principale — essaie WiFi puis Panier ────────────────────────────
 
   static Future<SyncResult> syncPending() async {
@@ -103,6 +115,7 @@ class SyncService {
       Map<int, List<Reponse>> byQuest, String panierUrl) async {
     int sent = 0, failed = 0;
     String? lastError;
+    final coordinatorEmail = await getCoordinatorEmail() ?? '';
     for (final entry in byQuest.entries) {
       final questId = entry.key;
       final reps    = entry.value;
@@ -115,6 +128,7 @@ class SyncService {
 
         final body = jsonEncode({
           'quest_id':      questId,
+          'user_email':    coordinatorEmail,
           'reponses_full': payload,
         });
 
@@ -145,7 +159,7 @@ class SyncService {
           client.close();
         }
 
-        if (bodyStr != null && bodyStr.trimLeft().startsWith('{')) {
+        if (bodyStr.trimLeft().startsWith('{')) {
           final result = jsonDecode(bodyStr) as Map<String, dynamic>;
           if (result['status'] == 'ok') {
             final uuids = reps.map((r) => r.uuid).toList();

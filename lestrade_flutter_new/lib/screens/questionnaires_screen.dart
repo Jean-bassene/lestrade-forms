@@ -3,6 +3,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/questionnaire.dart';
 import '../services/db_service.dart';
 import 'formulaire_screen.dart';
@@ -31,16 +32,20 @@ class _QuestionnairesScreenState extends State<QuestionnairesScreen> {
   }
 
   Future<void> _deleteQuest(Questionnaire q) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer ?'),
-        content: Text('Supprimer "${q.nom}" et ses réponses offline ?'),
+        title: Text(l10n.deleteQuestion),
+        content: Text(l10n.deleteSurveyConfirm(q.nom)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+            child: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -53,14 +58,15 @@ class _QuestionnairesScreenState extends State<QuestionnairesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Enquêtes'),
+        title: Text(l10n.surveysTitle),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _load,
-            tooltip: 'Actualiser',
+            tooltip: l10n.refresh,
           )
         ],
       ),
@@ -73,15 +79,15 @@ class _QuestionnairesScreenState extends State<QuestionnairesScreen> {
                     children: [
                       const Icon(Icons.list_alt, size: 64, color: Colors.grey),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Aucune enquête disponible',
-                        style: TextStyle(color: Colors.grey),
+                      Text(
+                        l10n.noSurveysAvailable,
+                        style: const TextStyle(color: Colors.grey),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Scannez un QR code ou téléchargez\ndepuis l\'accueil',
+                      Text(
+                        l10n.scanOrDownload,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                        style: const TextStyle(color: Colors.grey, fontSize: 13),
                       ),
                     ],
                   ),
@@ -98,9 +104,7 @@ class _QuestionnairesScreenState extends State<QuestionnairesScreen> {
                           leading: CircleAvatar(
                             backgroundColor: const Color(0xFF003366),
                             child: Text(
-                              q.nom.isNotEmpty
-                                  ? q.nom[0].toUpperCase()
-                                  : '?',
+                              q.nom.isNotEmpty ? q.nom[0].toUpperCase() : '?',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -112,7 +116,7 @@ class _QuestionnairesScreenState extends State<QuestionnairesScreen> {
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           subtitle: Text(
-                            '${q.nbSections} section(s) • ${q.nbQuestions} question(s)',
+                            l10n.sectionQuestionCount(q.nbSections, q.nbQuestions),
                             style: const TextStyle(fontSize: 12),
                           ),
                           trailing: PopupMenuButton<String>(
@@ -120,13 +124,14 @@ class _QuestionnairesScreenState extends State<QuestionnairesScreen> {
                               if (action == 'delete') _deleteQuest(q);
                             },
                             itemBuilder: (_) => [
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'delete',
                                 child: Row(
                                   children: [
-                                    Icon(Icons.delete, color: Colors.red, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Supprimer', style: TextStyle(color: Colors.red)),
+                                    const Icon(Icons.delete, color: Colors.red, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(l10n.delete,
+                                        style: const TextStyle(color: Colors.red)),
                                   ],
                                 ),
                               ),

@@ -12,23 +12,47 @@ from ..utils import security, api_client
 
 def register(app):
 
+    # ── Sync dropdown depuis sélection Gestion ────────────────────────────────
+
+    @callback(
+        Output("rep-quest-select", "value"),
+        Input("store-selected-quest-id", "data"),
+    )
+    def sync_rep_dropdown(quest_id):
+        return quest_id
+
     # ── Chargement du tableau ─────────────────────────────────────────────────
 
     @callback(
-        Output("table-reponses",      "columns"),
-        Output("table-reponses",      "data"),
-        Input("rep-quest-select",     "value"),
-        Input("rep-date-range",       "start_date"),
-        Input("rep-date-range",       "end_date"),
-        Input("rep-action-msg",       "children"),  # rafraîchit après delete
+        Output("table-reponses",          "columns"),
+        Output("table-reponses",          "data"),
+        Input("rep-quest-select",         "value"),
+        Input("rep-date-range",           "start_date"),
+        Input("rep-date-range",           "end_date"),
+        Input("rep-action-msg",           "children"),
+        Input("btn-refresh-reponses",     "n_clicks"),
     )
-    def load_reponses(quest_id, start, end, _msg):
+    def load_reponses(quest_id, start, end, _msg, _refresh):
         if not quest_id:
             return [], []
 
         rows = api_client.get_reponses_wide(int(quest_id))
+
+        # Fallback : si reponses_wide vide (pas de questions locales), afficher raw
         if not rows:
-            return [{"name": "Aucune réponse", "id": "msg"}], [{"msg": "Aucune réponse enregistrée."}]
+            raw = api_client.get_reponses(int(quest_id))
+            if not raw:
+                return [{"name": "Info", "id": "msg"}], [{"msg": "Aucune réponse enregistrée."}]
+            flat = []
+            for r in raw:
+                row = {"reponse_id": r.get("id", ""), "horodateur": str(r.get("horodateur", ""))}
+                try:
+                    d = json.loads(r.get("donnees_json") or "{}")
+                    row.update({str(k): str(v) for k, v in d.items()})
+                except Exception:
+                    row["donnees_json"] = r.get("donnees_json", "")
+                flat.append(row)
+            rows = flat
 
         # Filtre dates
         if start or end:
@@ -65,13 +89,21 @@ def register(app):
     @callback(
         Output("download-excel",  "data"),
         Output("rep-action-msg",  "children", allow_duplicate=True),
-        Input("btn-export-excel", "n_clicks"),
-        State("rep-quest-select", "value"),
+        Input("btn-export-excel",  "n_clicks"),
+        State("rep-quest-select",  "value"),
+        State("store-licence-key", "data"),
         prevent_initial_call=True,
     )
-    def export_excel(n_clicks, quest_id):
+    def export_excel(n_clicks, quest_id, licence):
         if not n_clicks or not quest_id:
             return no_update, no_update
+        if not security.is_premium(licence):
+            return no_update, html.Div(
+                "🔒 Export Excel — fonctionnalité Pro. "
+                "L'export CSV reste disponible gratuitement. "
+                "Rendez-vous dans l'onglet Plan.",
+                className="alert-warn",
+            )
 
         rows = api_client.get_reponses_wide(int(quest_id))
         if not rows:
@@ -161,9 +193,11 @@ def register(app):
 
         df = pd.DataFrame(rows)
 
-        # Cherche les colonnes latitude / longitude (insensible à la casse et aux préfixes)
-        lat_col = next((c for c in df.columns if "latitude"  in c.lower()), None)
-        lon_col = next((c for c in df.columns if "longitude" in c.lower()), None)
+        # Cherche latitude/longitude : clés renommées, brutes (_latitude) ou via texte question
+        lat_col = next((c for c in df.columns if c.lower() in ("latitude", "_latitude")
+                        or "latitude" in c.lower()), None)
+        lon_col = next((c for c in df.columns if c.lower() in ("longitude", "_longitude")
+                        or "longitude" in c.lower()), None)
         if not lat_col or not lon_col:
             return hidden, empty_fig
 

@@ -39,6 +39,15 @@ def strip_tags(s: str) -> str:
     return re.sub(r"<[^>]+>", "", s or "")
 
 
+# ── Freemium ─────────────────────────────────────────────────────────────────
+
+FREE_QUEST_LIMIT = 5  # questionnaires max en plan Free
+
+def is_premium(licence_key: str | None) -> bool:
+    """Retourne True si l'utilisateur a une licence Pro active."""
+    return bool(licence_key and licence_key not in ("", "__free__"))
+
+
 # ── Validation ────────────────────────────────────────────────────────────────
 
 def validate_email(email: object) -> tuple[bool, str]:
