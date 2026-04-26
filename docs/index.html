@@ -522,49 +522,5 @@
   </div>
 </footer>
 
-<script>
-  var PANIER_URL = "https://script.google.com/macros/s/AKfycbxJQx5p3EnMPvB_fLt9ZiQnlM3c_DMMt3ghiZtHB4SgyYpXBVi6Y2XDl-l4irYPlB91/exec";
-
-  document.getElementById("licence-form").addEventListener("submit", function(e) {
-    e.preventDefault();
-
-    var nom     = document.getElementById("f-nom").value.trim();
-    var email   = document.getElementById("f-email").value.trim();
-    var formule = document.getElementById("f-formule").value;
-    var btn     = document.getElementById("btn-submit");
-    var msg     = document.getElementById("form-msg");
-
-    btn.disabled    = true;
-    btn.textContent = "Envoi en cours...";
-    msg.style.display = "none";
-
-    var params = new URLSearchParams({
-      action:  "request_licence",
-      nom:     nom,
-      email:   email,
-      formule: formule
-    });
-
-    fetch(PANIER_URL + "?" + params.toString(), {
-      method: "GET",
-      mode:   "no-cors"
-    })
-    .then(function() {
-      msg.className       = "form-msg success";
-      msg.textContent     = "✓ Demande envoyée ! Vérifiez votre email dans quelques minutes (y compris les spams).";
-      msg.style.display   = "block";
-      btn.textContent     = "Demande envoyée ✓";
-      document.getElementById("f-nom").value   = "";
-      document.getElementById("f-email").value = "";
-    })
-    .catch(function() {
-      msg.className     = "form-msg error";
-      msg.textContent   = "Erreur réseau. Contactez-nous directement : bassene.jean@yahoo.com";
-      msg.style.display = "block";
-      btn.disabled      = false;
-      btn.textContent   = "Demander ma licence →";
-    });
-  });
-</script>
 </body>
 </html>
