@@ -45,7 +45,16 @@
     }
     .hero h1 { font-size: 42px; font-weight: 800; margin-bottom: 16px; }
     .hero h1 span { color: #7eb8f7; }
-    .hero p  { font-size: 18px; color: #cce0ff; max-width: 600px; margin: 0 auto 36px; line-height: 1.6; }
+    .hero p  { font-size: 18px; color: #cce0ff; max-width: 620px; margin: 0 auto 36px; line-height: 1.6; }
+    .hero-badges { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 32px; }
+    .hero-badge {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #cce0ff;
+      font-size: 12px;
+      padding: 5px 14px;
+      border-radius: 20px;
+    }
     .btn-hero {
       display: inline-block;
       background: #fff;
@@ -66,6 +75,18 @@
     }
     .btn-hero.outline:hover { border-color: #fff; }
 
+    /* ── BADGE NOUVEAUTES ── */
+    .new-banner {
+      background: linear-gradient(90deg, #1a6b3c, #198754);
+      color: #fff;
+      text-align: center;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .new-banner span { background: rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 10px; margin: 0 6px; font-size: 12px; }
+
     /* ── SECTIONS ── */
     section { padding: 70px 40px; max-width: 1000px; margin: 0 auto; }
     .section-title {
@@ -82,6 +103,44 @@
       font-size: 15px;
     }
 
+    /* ── DOWNLOADS ── */
+    .downloads-wrap { background: #f5f8fc; padding: 48px 40px; }
+    .downloads-grid {
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .dl-card {
+      flex: 1;
+      min-width: 300px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 28px 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      text-align: center;
+      border: 1px solid #e8edf3;
+    }
+    .dl-icon { font-size: 44px; margin-bottom: 12px; }
+    .dl-card h3 { color: #003366; margin-bottom: 6px; font-size: 17px; }
+    .dl-card p  { font-size: 13px; color: #666; margin-bottom: 18px; line-height: 1.6; }
+    .dl-version { font-size: 11px; color: #999; margin-top: 8px; }
+    .btn-dl {
+      display: inline-block;
+      padding: 11px 26px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      transition: opacity .2s;
+    }
+    .btn-dl:hover { opacity: 0.88; }
+    .btn-dl-win  { background: #003366; color: #fff; }
+    .btn-dl-apk  { background: #F59E0B; color: #fff; }
+    .dl-note { font-size: 11px; color: #aaa; margin-top: 10px; }
+
     /* ── FEATURES ── */
     .features-grid {
       display: grid;
@@ -95,9 +154,22 @@
       transition: box-shadow .2s;
     }
     .feature-card:hover { box-shadow: 0 4px 20px rgba(0,51,102,0.1); }
+    .feature-card.new-feat { border-color: #b6dfc8; background: #f4fbf7; }
     .feature-icon { font-size: 32px; margin-bottom: 12px; }
     .feature-card h3 { font-size: 16px; color: #003366; margin-bottom: 8px; }
     .feature-card p  { font-size: 14px; color: #666; line-height: 1.6; }
+    .badge-new {
+      display: inline-block;
+      background: #198754;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: 6px;
+      vertical-align: middle;
+      letter-spacing: 0.5px;
+    }
 
     /* ── PRICING ── */
     .pricing-wrap { background: #f5f8fc; padding: 70px 40px; }
@@ -267,11 +339,16 @@
       .hero h1 { font-size: 28px; }
       .nav-links { display: none; }
       section { padding: 50px 20px; }
-      .form-wrap, .pricing-wrap { padding: 50px 20px; }
+      .form-wrap, .pricing-wrap, .downloads-wrap { padding: 50px 20px; }
     }
   </style>
 </head>
 <body>
+
+<!-- BANNIERE NOUVEAUTES -->
+<div class="new-banner">
+  Nouveau <span>v1.3.0</span> — Fenêtre native Windows · GPS terrain · Analyse IA · Import Excel/CSV
+</div>
 
 <!-- NAV -->
 <nav>
@@ -287,78 +364,116 @@
 <!-- HERO -->
 <div class="hero">
   <h1>Collectez des données terrain<br><span>sans connexion internet</span></h1>
-  <p>Application desktop Windows pour créer des questionnaires, collecter des réponses sur mobile et analyser vos données — conçue pour les ONG et organisations de terrain.</p>
-  <a href="https://github.com/Jean-bassene/lestrade-forms/releases/download/v1.1.0/Lestrade_Forms_Setup_v1.1.0.exe" class="btn-hero">
+  <p>Application desktop Windows + mobile Android pour créer des questionnaires, collecter des réponses sur le terrain et analyser vos données — conçue pour les ONG et organisations de terrain.</p>
+  <div class="hero-badges">
+    <span class="hero-badge">Windows 10/11 natif</span>
+    <span class="hero-badge">Android 8+</span>
+    <span class="hero-badge">Offline-first</span>
+    <span class="hero-badge">GPS automatique</span>
+    <span class="hero-badge">Analyse IA</span>
+    <span class="hero-badge">Essai 90 jours gratuit</span>
+  </div>
+  <a href="https://github.com/Jean-bassene/lestrade-forms/releases/download/v1.3.0/Lestrade_Forms_Setup_v1.3.0.exe" class="btn-hero">
     💻 Télécharger pour Windows
   </a>
   <a href="https://github.com/Jean-bassene/lestrade-forms/releases/download/v1.3.0/lestrade_forms_v1.3.0.apk" class="btn-hero outline">
     📱 Télécharger l'APK Android
   </a>
   <a href="#licence" class="btn-hero outline" style="border-color:rgba(255,255,255,0.3);">Demander une licence</a>
-  <p style="margin-top:16px; font-size:13px; color:rgba(255,255,255,0.5);">Windows 10/11 · Android 8+ · Essai 90 jours gratuit</p>
+  <p style="margin-top:16px; font-size:13px; color:rgba(255,255,255,0.5);">v1.3.0 · Installation en 2 min · Aucune dépendance requise</p>
 </div>
 
 <!-- TELECHARGEMENTS -->
-<div style="background:#f5f8fc; padding:40px;" id="telechargement">
-  <div style="max-width:700px; margin:0 auto; display:flex; gap:20px; flex-wrap:wrap; justify-content:center;">
-    <div style="flex:1; min-width:280px; background:#fff; border-radius:10px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,0.07); text-align:center;">
-      <div style="font-size:40px; margin-bottom:10px;">💻</div>
-      <h3 style="color:#003366; margin-bottom:6px;">Windows Desktop</h3>
-      <p style="font-size:13px; color:#666; margin-bottom:16px;">Créez les questionnaires, gérez les licences, analysez les données. Inclut R + Chrome — aucune installation supplémentaire.</p>
-      <a href="https://github.com/Jean-bassene/lestrade-forms/releases/download/v1.1.0/Lestrade_Forms_Setup_v1.1.0.exe"
-         style="display:inline-block; background:#003366; color:#fff; padding:10px 24px; border-radius:6px; text-decoration:none; font-weight:600; font-size:14px;">
-        ⬇ Télécharger .exe (v1.1.0)
+<div class="downloads-wrap" id="telechargement">
+  <div class="downloads-grid">
+
+    <div class="dl-card">
+      <div class="dl-icon">💻</div>
+      <h3>Windows Desktop</h3>
+      <p>Créez les questionnaires, gérez les équipes, analysez les données. Application native — aucune installation supplémentaire, aucun navigateur requis.</p>
+      <a href="https://github.com/Jean-bassene/lestrade-forms/releases/download/v1.3.0/Lestrade_Forms_Setup_v1.3.0.exe"
+         class="btn-dl btn-dl-win">
+        ⬇ Télécharger .exe
       </a>
-      <p style="font-size:11px; color:#999; margin-top:8px;">Windows 10 / 11 · 64 bits</p>
+      <p class="dl-version">v1.3.0 · Windows 10 / 11 · 64 bits</p>
+      <p class="dl-note">WebView2 intégré à Windows 10/11 — aucun Chrome requis</p>
     </div>
-    <div style="flex:1; min-width:280px; background:#fff; border-radius:10px; padding:24px; box-shadow:0 2px 8px rgba(0,0,0,0.07); text-align:center;">
-      <div style="font-size:40px; margin-bottom:10px;">📱</div>
-      <h3 style="color:#003366; margin-bottom:6px;">Android Mobile</h3>
-      <p style="font-size:13px; color:#666; margin-bottom:16px;">Collectez les réponses sur le terrain, sans connexion internet. Scannez le QR code du coordinateur pour démarrer.</p>
+
+    <div class="dl-card">
+      <div class="dl-icon">📱</div>
+      <h3>Android Mobile</h3>
+      <p>Collectez les réponses sur le terrain, même sans connexion. Scannez le QR code du coordinateur pour démarrer. GPS automatique à chaque réponse.</p>
       <a href="https://github.com/Jean-bassene/lestrade-forms/releases/download/v1.3.0/lestrade_forms_v1.3.0.apk"
-         style="display:inline-block; background:#F59E0B; color:#fff; padding:10px 24px; border-radius:6px; text-decoration:none; font-weight:600; font-size:14px;">
-        ⬇ Télécharger APK (v1.3.0)
+         class="btn-dl btn-dl-apk">
+        ⬇ Télécharger APK
       </a>
-      <p style="font-size:11px; color:#999; margin-top:8px;">Android 8.0+ · Activer "Sources inconnues"</p>
+      <p class="dl-version">v1.3.0 · Android 8.0+</p>
+      <p class="dl-note">Activer "Sources inconnues" dans les paramètres Android</p>
     </div>
+
   </div>
 </div>
 
 <!-- FONCTIONNALITES -->
 <section id="fonctionnalites">
   <h2 class="section-title">Tout ce dont vous avez besoin sur le terrain</h2>
-  <p class="section-sub">Conçu pour les enquêteurs ONG, organisations humanitaires et de terrain</p>
+  <p class="section-sub">Conçu pour les enquêteurs, ONG, organisations humanitaires et de terrain</p>
   <div class="features-grid">
+
     <div class="feature-card">
       <div class="feature-icon">📋</div>
       <h3>Questionnaires illimités</h3>
-      <p>Créez des questionnaires complets avec sections, questions multiples, GPS, photos et plus encore.</p>
+      <p>Créez des questionnaires complets avec sections, 10 types de questions (choix unique/multiple, texte libre, Likert, date…) et questions obligatoires.</p>
     </div>
+
     <div class="feature-card">
       <div class="feature-icon">📱</div>
-      <h3>Collecte mobile</h3>
-      <p>Les enquêteurs scannent un QR code et remplissent les formulaires sur leur smartphone — sans connexion internet.</p>
+      <h3>Collecte mobile sans internet</h3>
+      <p>Les enquêteurs scannent un QR code et remplissent les formulaires sur leur smartphone Android. Les données sont sauvegardées localement et synchronisées dès qu'une connexion est disponible.</p>
     </div>
+
+    <div class="feature-card new-feat">
+      <div class="feature-icon">📍</div>
+      <h3>GPS automatique <span class="badge-new">NOUVEAU</span></h3>
+      <p>Les coordonnées GPS sont capturées automatiquement à chaque réponse terrain. Visualisez tous les points de collecte sur une carte interactive OpenStreetMap.</p>
+    </div>
+
+    <div class="feature-card new-feat">
+      <div class="feature-icon">🤖</div>
+      <h3>Analyse IA <span class="badge-new">NOUVEAU</span></h3>
+      <p>Obtenez une synthèse intelligente de vos résultats : points saillants, signaux de vigilance, qualité des données — en un clic, sans compétences statistiques.</p>
+    </div>
+
     <div class="feature-card">
       <div class="feature-icon">📊</div>
-      <h3>Analyse intégrée</h3>
-      <p>Tableaux de bord analytiques, graphiques, exports CSV/Excel — tout dans l'application.</p>
+      <h3>Analyses intégrées</h3>
+      <p>Statistiques univariées, tableaux croisés, test chi², corrélations, régression logistique, évolution temporelle — tout dans l'application, export Excel inclus.</p>
     </div>
+
+    <div class="feature-card new-feat">
+      <div class="feature-icon">📥</div>
+      <h3>Import Excel / CSV <span class="badge-new">NOUVEAU</span></h3>
+      <p>Importez vos données existantes en 3 étapes : upload, configuration des colonnes (groupes, indicateurs, textes libres), import direct en base.</p>
+    </div>
+
     <div class="feature-card">
       <div class="feature-icon">☁️</div>
       <h3>Synchronisation cloud</h3>
-      <p>Synchronisez vos données via Google Sheets (panier Apps Script) depuis n'importe où.</p>
+      <p>Synchronisez via Google Sheets (panier Apps Script). Les réponses terrain arrivent en un clic sur le desktop du coordinateur.</p>
     </div>
+
     <div class="feature-card">
       <div class="feature-icon">🔒</div>
       <h3>Données sécurisées</h3>
-      <p>Vos données restent dans votre propre Google Drive. Aucun accès tiers à vos informations.</p>
+      <p>Vos données restent sur votre machine et dans votre Google Drive. Aucun accès tiers, aucun cloud imposé.</p>
     </div>
+
     <div class="feature-card">
       <div class="feature-icon">💻</div>
-      <h3>Aucune installation complexe</h3>
-      <p>R, Chrome et tous les packages sont inclus. Un seul fichier .exe à installer.</p>
+      <h3>Application native Windows</h3>
+      <p>Fenêtre dédiée, pas de navigateur à ouvrir. Python embarqué — un seul fichier .exe à installer, aucune dépendance externe.</p>
     </div>
+
   </div>
 </section>
 
@@ -371,25 +486,25 @@
       <div class="step">
         <div class="step-num">1</div>
         <h4>Installez l'application</h4>
-        <p>Téléchargez et installez Lestrade Forms sur votre PC Windows.</p>
+        <p>Téléchargez et installez Lestrade Forms sur votre PC Windows en 2 minutes.</p>
       </div>
       <div class="step-arrow">→</div>
       <div class="step">
         <div class="step-num">2</div>
         <h4>Créez votre questionnaire</h4>
-        <p>Définissez vos sections et questions directement dans l'interface.</p>
+        <p>Définissez vos sections et questions directement dans l'interface desktop.</p>
       </div>
       <div class="step-arrow">→</div>
       <div class="step">
         <div class="step-num">3</div>
         <h4>Partagez le QR code</h4>
-        <p>Les enquêteurs scannent et remplissent depuis leur téléphone.</p>
+        <p>Les enquêteurs scannent depuis leur téléphone et collectent — même sans réseau.</p>
       </div>
       <div class="step-arrow">→</div>
       <div class="step">
         <div class="step-num">4</div>
-        <h4>Analysez les résultats</h4>
-        <p>Importez les réponses et visualisez vos données instantanément.</p>
+        <h4>Synchronisez et analysez</h4>
+        <p>Importez les réponses en un clic et visualisez vos données avec cartes et IA.</p>
       </div>
     </div>
   </div>
@@ -409,7 +524,8 @@
         <ul>
           <li>Toutes les fonctionnalités</li>
           <li>Questionnaires illimités</li>
-          <li>Collecte mobile</li>
+          <li>Collecte mobile + GPS</li>
+          <li>Analyse IA incluse</li>
           <li>Export CSV / Excel</li>
           <li>Aucune carte bancaire requise</li>
         </ul>
@@ -490,7 +606,7 @@
 
 <!-- FOOTER -->
 <footer>
-  <div><strong style="color:#fff;">Lestrade Forms</strong> — Application de collecte de données terrain</div>
+  <div><strong style="color:#fff;">Lestrade Forms</strong> v1.3.0 — Application de collecte de données terrain</div>
   <div class="contact">
     <a href="mailto:bassene.jean@yahoo.com">bassene.jean@yahoo.com</a>
     &nbsp;·&nbsp;
@@ -517,8 +633,6 @@
     btn.textContent = "Envoi en cours...";
     msg.style.display = "none";
 
-    // Apps Script ne supporte pas les requêtes CORS POST directement
-    // On passe par un iframe trick avec un form GET encodé en paramètre
     var params = new URLSearchParams({
       action:  "request_licence",
       nom:     nom,
