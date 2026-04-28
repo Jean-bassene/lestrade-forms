@@ -55,7 +55,8 @@ def _extract_json(text: str) -> dict:
 
 
 def _val_to_numeric(v) -> float | None:
-    """Convertit une valeur Likert ou numérique en float ; None si impossible."""
+    """Convertit une valeur Likert ou numérique en float ; None si impossible.
+    Gère aussi les labels du type '1 - Tres degrade' ou '5 - Tres fertile'."""
     if v in (None, "", []):
         return None
     v_str = str(v).strip().lower()
@@ -64,7 +65,13 @@ def _val_to_numeric(v) -> float | None:
     try:
         return float(v_str)
     except ValueError:
-        return None
+        pass
+    # Labels "N - texte" générés par le constructeur de questionnaire (ex. options Likert)
+    import re
+    m = re.match(r'^(\d+(?:\.\d+)?)\s*[-–]', v_str)
+    if m:
+        return float(m.group(1))
+    return None
 
 
 def _filter_reps(reps: list, group_var: str | None, filter_val: str | None) -> list:
@@ -219,7 +226,11 @@ def register(app):
             for rep in reps:
                 try:
                     d = json.loads(rep.get("donnees_json", "{}"))
-                    total_filled += sum(1 for v in d.values() if v not in (None, "", [], {}))
+                    # Compter uniquement les clés numériques (IDs de questions)
+                    total_filled += sum(
+                        1 for k, v in d.items()
+                        if k.lstrip("-").isdigit() and v not in (None, "", [], {})
+                    )
                 except Exception:
                     pass
             compl = f"{total_filled / (nb_q * nb_rep) * 100:.1f}%"
@@ -1317,8 +1328,11 @@ def register(app):
         filled = 0
         for r in reps:
             try:
-                filled += sum(1 for v in json.loads(r.get("donnees_json", "{}")).values()
-                              if v not in (None, "", [], {}))
+                d = json.loads(r.get("donnees_json", "{}"))
+                filled += sum(
+                    1 for k, v in d.items()
+                    if k.lstrip("-").isdigit() and v not in (None, "", [], {})
+                )
             except Exception:
                 pass
         compl_pct = filled / (nb_q * nb_rep) * 100 if nb_q and nb_rep else 0
